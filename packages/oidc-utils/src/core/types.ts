@@ -8,7 +8,7 @@ export type AuthConfig = {
   authorizeEndpoint?: string;
   tokenEndpoint?: string;
   endsessionEndpoint?: string;
-  jwks?: JWKS;
+  jwks: JWKS | null;
   queryParams?: QueryParams;
   validateDiscovery?: boolean;
   discovery?: boolean;
@@ -19,8 +19,9 @@ export type AuthConfig = {
   checkSessionIframeTimeout?: number;
   disableRefreshTokenConsent?: boolean;
   disableCheckSession?: boolean;
-  redirect: () => void;
+  redirect: (url: string) => void;
   randomBytes: (size: number) => Promise<Uint8Array> | Uint8Array;
+  authStateChange: (authState: string) => void;
 };
 
 type AuthBaseParams = {
@@ -44,12 +45,20 @@ export type AuthParams = AuthBaseParams & QueryParams;
 
 export type QueryParams = Record<string, number | string | boolean>;
 
-export type AppStateParams = AuthParams & {
+export type AppStateParams = AuthParams & StateParams;
+
+export type AppStateParamKeys =
+  | keyof StateParams
+  | keyof AuthBaseParams
+  | keyof QueryParams;
+
+type StateParams = {
   authResult: AuthResult;
   nonce: string;
   codeVerifier: string;
   sendUserBackTo: string;
   discoveryDocument: DiscoveryDocument;
+  jwks: JWKS;
 };
 
 export type AuthErrorParams = {
@@ -86,7 +95,6 @@ export type DiscoveryDocument = {
   authorization_endpoint: string;
   token_endpoint: string;
   jwks_uri: string;
-  jwks: JWKS;
 };
 
 type IdTokenBase = {

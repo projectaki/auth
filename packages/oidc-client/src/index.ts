@@ -1,5 +1,4 @@
-export * from './lib/oidc-client';
-export * from './lib/storage/browser-storage-service';
-export * from '@z-auth/oidc-utils';
-export { AuthenticationState } from './lib/events/auth-state';
-export * from './lib/events/events';
+export * from "./core/lib/oidc-client";
+export * from "./core/lib/storage/browser-storage-service";
+export { AuthenticationState } from "./core/lib/events/auth-state";
+export * from "./core/lib/events/events";

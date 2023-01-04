@@ -26,7 +26,7 @@ export const createParamsFromConfig = (
     scope: authConfig.scope,
   };
 
-  return { authUrlParams, ...authConfig.queryParams, ...extraParams };
+  return { ...authUrlParams, ...authConfig.queryParams, ...extraParams };
 };
 
 export const createAuthUrl = (
@@ -93,7 +93,7 @@ export const createVerifierAndChallengePair = async (
 
   const challenge = base64UrlEncode(sha256(verifier, "ascii"));
 
-  return [verifier, challenge];
+  return [verifier, challenge] as const;
 };
 
 export const verifyChallenge = (verifier: string, challenge: string) => {

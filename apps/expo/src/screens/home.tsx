@@ -8,11 +8,7 @@ import type { inferProcedureOutput } from "@trpc/server";
 import type { AppRouter } from "@acme/api";
 
 import { trpc } from "../utils/trpc";
-import {
-  base64UrlEncode,
-  createRandomNative,
-  createRandomString,
-} from "@auth/oidc-utils";
+import { base64UrlEncode, createRandomString } from "@auth/oidc-utils";
 
 import * as Random from "expo-random";
 
@@ -70,7 +66,7 @@ export const HomeScreen = () => {
 
   React.useEffect(() => {
     (async () => {
-      setTest(await createRandomNative());
+      setTest("a");
     })();
   }, []);
 

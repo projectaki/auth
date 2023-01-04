@@ -196,7 +196,10 @@ importers:
       typescript: 4.9.4
 
   packages/oidc-client:
-    specifiers: {}
+    specifiers:
+      '@auth/oidc-utils': '*'
+    dependencies:
+      '@auth/oidc-utils': link:../oidc-utils
 
   packages/oidc-utils:
     specifiers:
