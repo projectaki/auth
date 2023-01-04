@@ -26,6 +26,7 @@ importers:
     specifiers:
       '@acme/api': '*'
       '@acme/tailwind-config': '*'
+      '@auth/oidc-utils': '*'
       '@babel/core': ^7.19.3
       '@babel/preset-env': ^7.19.3
       '@babel/runtime': ^7.19.0
@@ -38,6 +39,7 @@ importers:
       '@types/react-native': ~0.70.8
       eslint: ^8.30.0
       expo: ~47.0.6
+      expo-random: ~13.0.0
       expo-status-bar: ~1.4.2
       nativewind: ^2.0.11
       postcss: ^8.4.19
@@ -50,12 +52,14 @@ importers:
     dependencies:
       '@acme/api': link:../../packages/api
       '@acme/tailwind-config': link:../../packages/config/tailwind
+      '@auth/oidc-utils': link:../../packages/oidc-utils
       '@shopify/flash-list': 1.4.0_bznrqlx657afr3ph3snqmu46li
       '@tanstack/react-query': 4.20.4_slnhbjkuf3cktqrwdgz34rrasq
       '@trpc/client': 10.5.0_@trpc+server@10.5.0
       '@trpc/react-query': 10.5.0_hkttq5uvq7kltri3tppuogqqou
       '@trpc/server': 10.5.0
       expo: 47.0.6_@babel+core@7.19.3
+      expo-random: 13.0.0_expo@47.0.6
       expo-status-bar: 1.4.2
       nativewind: 2.0.11_dpx3ezyh7vrtb4aufvxbx6obrq
       react: 18.2.0
@@ -190,6 +194,25 @@ importers:
       dotenv-cli: 6.0.0
       prisma: 4.8.0
       typescript: 4.9.4
+
+  packages/oidc-client:
+    specifiers: {}
+
+  packages/oidc-utils:
+    specifiers:
+      '@types/jsrsasign': ^10.5.4
+      '@types/react-native-base64': ^0.2.0
+      jsrsasign: ^10.6.1
+      react-native-base64: ^0.2.1
+    dependencies:
+      jsrsasign: 10.6.1
+      react-native-base64: 0.2.1
+    devDependencies:
+      '@types/jsrsasign': 10.5.4
+      '@types/react-native-base64': 0.2.0
+
+  packages/public-auth-client:
+    specifiers: {}
 
 packages:
 
@@ -2550,7 +2573,7 @@ packages:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
     dependencies:
-      '@tanstack/react-query': 4.20.4_biqbaboplfbrettd7655fr4n2y
+      '@tanstack/react-query': 4.20.4_slnhbjkuf3cktqrwdgz34rrasq
       '@trpc/client': 10.5.0_@trpc+server@10.5.0
       '@trpc/server': 10.5.0
       react: 18.2.0
@@ -2585,6 +2608,10 @@ packages:
     resolution: {integrity: sha512-dRLjCWHYg4oaA77cxO64oO+7JwCwnIzkZPdrrC71jQmQtlhM556pwKo5bUzqvZndkVbeFLIIi+9TC40JNF5hNQ==}
     dev: true
 
+  /@types/jsrsasign/10.5.4:
+    resolution: {integrity: sha512-05S2f4lGaWgCwFHsa3OEirc4VJf/sJRfhofzxUbuFbmm6NbffPXZrnJqquQAtS3g4C8Z0L9NHgW0znmtDxNoTQ==}
+    dev: true
+
   /@types/keyv/3.1.4:
     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
     dependencies:
@@ -2606,6 +2633,10 @@ packages:
     resolution: {integrity: sha512-qnVvHxASt/H7i+XG1U1xMiY5t+IHcPGUK7TDMDzom08xa7e86eCeKOiLZezwCKVxJn6NEiiy2ekgX8aQssjIKg==}
     dependencies:
       '@types/react': 18.0.25
+    dev: true
+
+  /@types/react-native-base64/0.2.0:
+    resolution: {integrity: sha512-5kUtS7Kf8Xl4zEwbqLITEuQReQTby4UOGfnsEeBFJEVmUfT+ygOv/Qmv0v6El0iV1eDhXS+/0i7CGR9d3/nRSA==}
     dev: true
 
   /@types/react-native/0.70.8:
@@ -4658,6 +4689,15 @@ packages:
       invariant: 2.2.4
     dev: false
 
+  /expo-random/13.0.0_expo@47.0.6:
+    resolution: {integrity: sha512-aGb0vtUmFFuW0TF1rdOgsz89zEVD/RXUPUnnZy5+i3jJeQ2PerJ4uo72/EuWqHpCBNto8/qT+aCzFinmQDeTAA==}
+    peerDependencies:
+      expo: '*'
+    dependencies:
+      base64-js: 1.5.1
+      expo: 47.0.6_@babel+core@7.19.3
+    dev: false
+
   /expo-status-bar/1.4.2:
     resolution: {integrity: sha512-ZWjO6D4ARGYfAd3SWDD3STNudHDhyBZDZjhhseqoEmsf7bS9ykny8KKOhlzJW24qIQNPhkgdvHhaw9fQwMJy3Q==}
     dev: false
@@ -5962,6 +6002,10 @@ packages:
       universalify: 2.0.0
     optionalDependencies:
       graceful-fs: 4.2.10
+    dev: false
+
+  /jsrsasign/10.6.1:
+    resolution: {integrity: sha512-emiQ05haY9CRj1Ho/LiuCqr/+8RgJuWdiHYNglIg2Qjfz0n+pnUq9I2QHplXuOMO2EnAW1oCGC1++aU5VoWSlw==}
     dev: false
 
   /jsx-ast-utils/3.3.3:
@@ -7670,6 +7714,10 @@ packages:
 
   /react-is/18.2.0:
     resolution: {integrity: sha512-xWGDIW6x921xtzPkhiULtthJHoJvBbF3q26fzloPCK0hsvxtPVelvftw3zjbHWSkR2km9Z+4uxbDDK/6Zw9B8w==}
+    dev: false
+
+  /react-native-base64/0.2.1:
+    resolution: {integrity: sha512-eHgt/MA8y5ZF0aHfZ1aTPcIkDWxza9AaEk4GcpIX+ZYfZ04RcaNahO+527KR7J44/mD3efYfM23O2C1N44ByWA==}
     dev: false
 
   /react-native-codegen/0.71.2_@babel+preset-env@7.19.3:

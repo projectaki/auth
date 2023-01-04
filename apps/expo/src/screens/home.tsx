@@ -1,11 +1,6 @@
-import React from "react";
+import React, { useMemo } from "react";
 
-import {
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FlashList } from "@shopify/flash-list";
@@ -13,6 +8,13 @@ import type { inferProcedureOutput } from "@trpc/server";
 import type { AppRouter } from "@acme/api";
 
 import { trpc } from "../utils/trpc";
+import {
+  base64UrlEncode,
+  createRandomNative,
+  createRandomString,
+} from "@auth/oidc-utils";
+
+import * as Random from "expo-random";
 
 const PostCard: React.FC<{
   post: inferProcedureOutput<AppRouter["post"]["all"]>[number];
@@ -64,41 +66,18 @@ const CreatePost: React.FC = () => {
 };
 
 export const HomeScreen = () => {
-  const postQuery = trpc.post.all.useQuery();
-  const [showPost, setShowPost] = React.useState<string | null>(null);
+  const [test, setTest] = React.useState<any>();
+
+  React.useEffect(() => {
+    (async () => {
+      setTest(await createRandomNative());
+    })();
+  }, []);
 
   return (
     <SafeAreaView className="bg-[#2e026d] bg-gradient-to-b from-[#2e026d] to-[#15162c]">
       <View className="h-full w-full p-4">
-        <Text className="mx-auto pb-2 text-5xl font-bold text-white">
-          Create <Text className="text-[#cc66ff]">T3</Text> Turbo
-        </Text>
-
-        <View className="py-2">
-          {showPost ? (
-            <Text className="text-white">
-              <Text className="font-semibold">Selected post:</Text>
-              {showPost}
-            </Text>
-          ) : (
-            <Text className="font-semibold italic text-white">
-              Press on a post
-            </Text>
-          )}
-        </View>
-
-        <FlashList
-          data={postQuery.data}
-          estimatedItemSize={20}
-          ItemSeparatorComponent={() => <View className="h-2" />}
-          renderItem={(p) => (
-            <TouchableOpacity onPress={() => setShowPost(p.item.id)}>
-              <PostCard post={p.item} />
-            </TouchableOpacity>
-          )}
-        />
-
-        <CreatePost />
+        <Text>{test}</Text>
       </View>
     </SafeAreaView>
   );

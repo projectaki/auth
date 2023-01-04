@@ -1,5 +1,5 @@
 export type AuthConfig = {
-  responseType: 'code';
+  responseType: "code";
   clientId: string;
   redirectUri: string;
   postLogoutRedirectUri: string;
@@ -19,18 +19,20 @@ export type AuthConfig = {
   checkSessionIframeTimeout?: number;
   disableRefreshTokenConsent?: boolean;
   disableCheckSession?: boolean;
+  redirect: () => void;
+  randomBytes: (size: number) => Promise<Uint8Array> | Uint8Array;
 };
 
 type AuthBaseParams = {
-  response_type: 'code';
+  response_type: "code";
   client_id: string;
   redirect_uri: string;
   scope: string;
   state?: string;
-  response_mode?: 'query' | 'fragment';
+  response_mode?: "query" | "fragment";
   nonce?: string;
-  display?: 'page' | 'popup' | 'touch' | 'wap';
-  prompt?: 'none' | 'consent' | 'login' | 'select_account';
+  display?: "page" | "popup" | "touch" | "wap";
+  prompt?: "none" | "consent" | "login" | "select_account";
   max_age?: number;
   ui_locales?: string;
   id_token_hint?: string;
@@ -58,25 +60,25 @@ export type AuthErrorParams = {
 };
 
 type AuthError =
-  | 'access_denied'
-  | 'unauthorized_client'
-  | 'interaction_required'
-  | 'invalid_request'
-  | 'invalid_request_uri'
-  | 'invalid_request_object'
-  | 'login_required'
-  | 'unsupported_response_type'
-  | 'server_error'
-  | 'temporarily_unavailable'
-  | 'user_cancelled'
-  | 'invalid_client'
-  | 'invalid_grant'
-  | 'invalid_scope'
-  | 'user_selection_required'
-  | 'consent_required'
-  | 'request_not_supported'
-  | 'request_uri_not_supported'
-  | 'registration_not_supported';
+  | "access_denied"
+  | "unauthorized_client"
+  | "interaction_required"
+  | "invalid_request"
+  | "invalid_request_uri"
+  | "invalid_request_object"
+  | "login_required"
+  | "unsupported_response_type"
+  | "server_error"
+  | "temporarily_unavailable"
+  | "user_cancelled"
+  | "invalid_client"
+  | "invalid_grant"
+  | "invalid_scope"
+  | "user_selection_required"
+  | "consent_required"
+  | "request_not_supported"
+  | "request_uri_not_supported"
+  | "registration_not_supported";
 
 export type DiscoveryDocument = {
   check_session_iframe: string;

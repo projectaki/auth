@@ -1,4 +1,14 @@
 {
   "name": "@auth/oidc-utils",
-  "version": "0.0.1"
+  "version": "0.0.1",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "jsrsasign": "^10.6.1",
+    "react-native-base64": "^0.2.1"
+  },
+  "devDependencies": {
+    "@types/jsrsasign": "^10.5.4",
+    "@types/react-native-base64": "^0.2.0"
+  }
 }
