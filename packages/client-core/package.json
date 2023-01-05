@@ -1,0 +1,9 @@
+{
+  "name": "@authts/client-core",
+  "version": "0.0.1",
+  "main": "index.ts",
+  "types": "index.ts",
+  "dependencies": {
+    "@authts/core": "*"
+  }
+}
