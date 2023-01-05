@@ -1,6 +1,13 @@
 import { KEYUTIL, KJUR } from "jsrsasign";
 import { getQueryParams, getUrlWithoutParams } from "../../web/_utils";
-import { AuthConfig, QueryParams, AuthParams, JWK, JWT } from "../types";
+import {
+  AuthConfig,
+  QueryParams,
+  JWK,
+  JWT,
+  AuthBaseParams,
+  ExtraQueryParams,
+} from "../types";
 
 import {
   base64UrlEncode,
@@ -17,9 +24,9 @@ const SKEW_DEFAULT = 0;
 
 export const createParamsFromConfig = (
   authConfig: AuthConfig,
-  extraParams?: QueryParams,
+  extraParams?: ExtraQueryParams,
 ) => {
-  const authUrlParams: AuthParams = {
+  const authUrlParams: AuthBaseParams = {
     client_id: authConfig.clientId,
     redirect_uri: authConfig.redirectUri,
     response_type: authConfig.responseType,
@@ -31,14 +38,14 @@ export const createParamsFromConfig = (
 
 export const createAuthUrl = (
   authConfig: AuthConfig,
-  authUrlParams: AuthParams,
+  authUrlParams: AuthBaseParams,
   codeChallenge?: string,
 ) => {
   const queryParams = new URLSearchParams();
 
-  for (const key in authUrlParams) {
+  typedObjectKeys(authUrlParams).forEach((key) => {
     queryParams.append(key, authUrlParams[key]!.toString());
-  }
+  });
 
   if (codeChallenge) queryParams.append("code_challenge", codeChallenge);
   if (codeChallenge) queryParams.append("code_challenge_method", "S256");
@@ -86,8 +93,8 @@ export const createRefreshTokenRequestBody = (
 };
 
 export const createVerifierAndChallengePair = async (
-  length: number = 32,
   authConfig: AuthConfig,
+  length: number = 32,
 ) => {
   const verifier = await createNonce(length, authConfig);
 

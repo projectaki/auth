@@ -1,4 +1,4 @@
-import { Logger } from "./logger";
+import { Logger } from "@auth/oidc-utils";
 
 export const createDefaultLogger = (): Logger => {
   const log = (message: string, ...optionalParams: any[]) => {

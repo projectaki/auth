@@ -13,18 +13,20 @@ export type AuthConfig = {
   validateDiscovery?: boolean;
   discovery?: boolean;
   clockSkewSeconds?: number;
-  useHttps?: boolean;
-  preserveRoute?: boolean;
-  checkSessionIframe?: string;
-  checkSessionIframeTimeout?: number;
+  enforceHttps?: boolean;
   disableRefreshTokenConsent?: boolean;
-  disableCheckSession?: boolean;
+  preloadDiscoveryDocument?: boolean;
+};
+
+export type Actions = {
   redirect: (url: string) => void;
+  parseUrl: () => string;
+  replaceUrlState: (url: string) => void;
   randomBytes: (size: number) => Promise<Uint8Array> | Uint8Array;
   authStateChange: (authState: string) => void;
 };
 
-type AuthBaseParams = {
+export type AuthBaseParams = {
   response_type: "code";
   client_id: string;
   redirect_uri: string;
@@ -41,25 +43,22 @@ type AuthBaseParams = {
   acr_values?: string;
 };
 
-export type AuthParams = AuthBaseParams & QueryParams;
-
-export type QueryParams = Record<string, number | string | boolean>;
-
-export type AppStateParams = AuthParams & StateParams;
-
-export type AppStateParamKeys =
-  | keyof StateParams
-  | keyof AuthBaseParams
-  | keyof QueryParams;
+export type ExtraQueryParams = Record<"audience", string>;
 
 type StateParams = {
-  authResult: AuthResult;
+  session: Session;
   nonce: string;
   codeVerifier: string;
   sendUserBackTo: string;
   discoveryDocument: DiscoveryDocument;
   jwks: JWKS;
 };
+
+export type QueryParams = Record<string, number | string | boolean>;
+
+export type SessionParams = AuthBaseParams & StateParams & ExtraQueryParams;
+
+export type SessionParamKeys = keyof SessionParams;
 
 export type AuthErrorParams = {
   error: AuthError;
@@ -112,13 +111,14 @@ type IdTokenBase = {
 
 export type IdToken = IdTokenBase & QueryParams;
 
-export type AuthResult = {
+export type Session = {
   access_token: string;
   id_token: string;
   refresh_token: string;
   expires_in: number;
   scope: string;
   token_type: string;
+  user: any;
 };
 
 export type JWKS = {
@@ -141,3 +141,41 @@ export type JWT = {
   payload: any;
   signature: string;
 };
+
+export type StorageService = {
+  get<K extends StorageKey>(
+    key: K,
+  ): StorageReturnType<K> | null | Promise<StorageReturnType<K> | null>;
+  set<K extends StorageKey, T>(key: K, value: T): void | Promise<void>;
+  remove<K extends StorageKey>(key: K): void | Promise<void>;
+  clear(): void | Promise<void>;
+};
+
+type StorageReturnType<K> = K extends "appState"
+  ? SessionParams
+  : K extends SessionParamKeys
+  ? SessionParams[K]
+  : never;
+
+type StorageKey = SessionParamKeys | "appState";
+
+export type Logger = {
+  log(message: string, ...optionalParams: any[]): void;
+  error(message: string, ...optionalParams: any[]): void;
+  warn(message: string, ...optionalParams: any[]): void;
+};
+
+export type HttpService = {
+  get<T>(url: string, headers?: { [key: string]: string }): Promise<T>;
+
+  post<T>(
+    url: string,
+    body: any,
+    headers?: { [key: string]: string },
+  ): Promise<T>;
+};
+
+export type AuthenticationState =
+  | "unauthenticated"
+  | "authenticating"
+  | "authenticated";
