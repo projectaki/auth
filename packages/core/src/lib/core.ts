@@ -1,13 +1,5 @@
 import { KEYUTIL, KJUR } from "jsrsasign";
-import {
-  AuthConfig,
-  QueryParams,
-  JWK,
-  JWT,
-  AuthBaseParams,
-  ExtraQueryParams,
-  Actions,
-} from "./types";
+import { AuthConfig, JWK, JWT, AuthParams, ExtraQueryParams, Adapters, AuthBaseParams } from "./types";
 
 import {
   base64UrlEncode,
@@ -22,10 +14,7 @@ import {
 
 const SKEW_DEFAULT = 0;
 
-export const createParamsFromConfig = (
-  authConfig: AuthConfig,
-  extraParams?: ExtraQueryParams,
-) => {
+export const createParamsFromConfig = (authConfig: AuthConfig, extraParams?: ExtraQueryParams) => {
   const authUrlParams: AuthBaseParams = {
     client_id: authConfig.clientId,
     redirect_uri: authConfig.redirectUri,
@@ -36,11 +25,7 @@ export const createParamsFromConfig = (
   return { ...authUrlParams, ...authConfig.queryParams, ...extraParams };
 };
 
-export const createAuthUrl = (
-  authConfig: AuthConfig,
-  authUrlParams: AuthBaseParams,
-  codeChallenge?: string,
-) => {
+export const createAuthUrl = (authConfig: AuthConfig, authUrlParams: AuthParams, codeChallenge?: string) => {
   const queryParams = new URLSearchParams();
 
   typedObjectKeys(authUrlParams).forEach((key) => {
@@ -51,8 +36,7 @@ export const createAuthUrl = (
   if (codeChallenge) queryParams.append("code_challenge_method", "S256");
 
   if (!authConfig.disableRefreshTokenConsent) {
-    if (authUrlParams["scope"].split(" ").includes("offline_access"))
-      queryParams.append("prompt", "consent");
+    if (authUrlParams["scope"].split(" ").includes("offline_access")) queryParams.append("prompt", "consent");
   }
 
   const res = `${authConfig.authorizeEndpoint}?${queryParams.toString()}`;
@@ -60,11 +44,7 @@ export const createAuthUrl = (
   return res;
 };
 
-export const createTokenRequestBody = (
-  authConfig: AuthConfig,
-  code: string,
-  codeVerifier: string,
-) => {
+export const createTokenRequestBody = (authConfig: AuthConfig, code: string, codeVerifier: string) => {
   const urlSearchParam = new URLSearchParams();
 
   urlSearchParam.append("grant_type", "authorization_code");
@@ -78,10 +58,7 @@ export const createTokenRequestBody = (
   return body;
 };
 
-export const createRefreshTokenRequestBody = (
-  authConfig: AuthConfig,
-  refreshToken: string,
-) => {
+export const createRefreshTokenRequestBody = (authConfig: AuthConfig, refreshToken: string) => {
   const urlSearchParam = new URLSearchParams();
 
   urlSearchParam.append("grant_type", "refresh_token");
@@ -92,10 +69,7 @@ export const createRefreshTokenRequestBody = (
   return urlSearchParam.toString();
 };
 
-export const createVerifierAndChallengePair = async (
-  actions: Actions,
-  length: number = 32,
-) => {
+export const createVerifierAndChallengePair = async (actions: Adapters, length: number = 32) => {
   const verifier = await createNonce(length, actions);
 
   const challenge = base64UrlEncode(sha256(verifier, "ascii"));
@@ -111,7 +85,7 @@ export const verifyChallenge = (verifier: string, challenge: string) => {
   return challengeHash === verifierHash;
 };
 
-export const createNonce = async (length: number, actions: Actions) => {
+export const createNonce = async (length: number, actions: Adapters) => {
   const randomASCIIString = await createRandomString(length, actions);
 
   const nonce = base64UrlEncode(randomASCIIString);
@@ -127,12 +101,7 @@ export const createDiscoveryUrl = (issuer: string) => {
   return `${issuerWithoutTrailingSlash}${route}`;
 };
 
-export const validateIdToken = (
-  idToken: string,
-  authConfig: AuthConfig,
-  nonce?: string,
-  max_age?: number,
-): boolean => {
+export const validateIdToken = (idToken: string, authConfig: AuthConfig, nonce?: string, max_age?: number): boolean => {
   const { header, payload } = decodeJWt(idToken);
 
   checkEncryption();
@@ -154,12 +123,8 @@ export const validateIdToken = (
   }
 
   function validateIssuer() {
-    if (
-      trimTrailingSlash(authConfig.issuer) !== trimTrailingSlash(payload.iss)
-    ) {
-      throw new Error(
-        `Invalid issuer, expected ${authConfig.issuer} but got ${payload.iss}`,
-      );
+    if (trimTrailingSlash(authConfig.issuer) !== trimTrailingSlash(payload.iss)) {
+      throw new Error(`Invalid issuer, expected ${authConfig.issuer} but got ${payload.iss}`);
     }
   }
 
@@ -167,9 +132,7 @@ export const validateIdToken = (
     const audiences = payload.aud.split(" ");
 
     if (!audiences.includes(authConfig.clientId)) {
-      throw new Error(
-        `Invalid audience expected ${authConfig.clientId} but got ${audiences}`,
-      );
+      throw new Error(`Invalid audience expected ${authConfig.clientId} but got ${audiences}`);
     }
 
     if (audiences.length > 1) {
@@ -201,10 +164,7 @@ export const validateIdToken = (
     } else {
       const jwk = authConfig.jwks?.keys.find((jwk: JWK) => jwk.alg === alg);
 
-      if (!jwk)
-        throw new Error(
-          "There was no kid, and could not find jwk with matching alg",
-        );
+      if (!jwk) throw new Error("There was no kid, and could not find jwk with matching alg");
 
       const pubKey = KEYUTIL.getKey(jwk) as jsrsasign.RSAKey;
 
@@ -275,11 +235,9 @@ export const validateIdToken = (
 
     if (!max_age && !auth_time) return;
 
-    if (max_age && !auth_time)
-      throw new Error("auth_time required when max age was requested");
+    if (max_age && !auth_time) throw new Error("auth_time required when max age was requested");
 
-    if (!max_age && auth_time)
-      throw new Error("max_age required when auth_time was returned");
+    if (!max_age && auth_time) throw new Error("max_age required when auth_time was returned");
 
     const timeToExpire = auth_time + max_age;
 
@@ -289,10 +247,7 @@ export const validateIdToken = (
   }
 };
 
-export const createLogoutUrl = (
-  endsessionEndpoint: string,
-  queryParams?: QueryParams,
-) => {
+export const createLogoutUrl = (endsessionEndpoint: string, queryParams?: ExtraQueryParams) => {
   if (!queryParams) return endsessionEndpoint;
 
   const searchParams = new URLSearchParams();
@@ -322,11 +277,7 @@ export const validateCHash = (idToken: string, code: string) => {
   }
 };
 
-const validateXHash = (
-  idToken: string,
-  getXHash: (jwt: JWT) => string,
-  toValidate: string,
-) => {
+const validateXHash = (idToken: string, getXHash: (jwt: JWT) => string, toValidate: string) => {
   const decodedIdToken = decodeJWt(idToken);
 
   const x_hash = getXHash(decodedIdToken);

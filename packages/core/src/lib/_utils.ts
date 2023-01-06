@@ -1,10 +1,8 @@
 import { KJUR } from "jsrsasign";
 import base64 from "react-native-base64";
-import { Actions, AuthConfig, HttpService, JWT } from "./types";
+import { Adapters, AuthConfig, HttpService, JWT, SessionParams, StorageKey, StorageService, StorageWrapper } from "./types";
 
-export const typedObjectKeys = <T extends {}, K extends keyof T>(
-  obj: T,
-): K[] => {
+export const typedObjectKeys = <T extends {}, K extends keyof T>(obj: T): K[] => {
   return Object.keys(obj) as K[];
 };
 
@@ -50,8 +48,7 @@ export const base64Decode = (str: string) => {
   }
 };
 
-export const base64UrlEncode = (str: string) =>
-  base64Encode(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+export const base64UrlEncode = (str: string) => base64Encode(str).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
 
 export const base64UrlDecode = (str: string) => {
   const padding = str.length % 4;
@@ -81,7 +78,7 @@ export const decodeJWt = (jwt: string): JWT => {
   }
 };
 
-export const createRandomString = async (length: number, actions: Actions) => {
+export const createRandomString = async (length: number, actions: Adapters) => {
   const randomBytes = await actions.randomBytes(length);
 
   const randomASCIIString = String.fromCharCode(...randomBytes);
@@ -94,10 +91,7 @@ export const trimTrailingSlash = (value: string) => {
 };
 
 export const createFetchService = (): HttpService => {
-  const get = async <T>(
-    url: string,
-    headers?: { [key: string]: string },
-  ): Promise<T> => {
+  const get = async <T>(url: string, headers?: { [key: string]: string }): Promise<T> => {
     const response = await fetch(url, {
       method: "GET",
       headers,
@@ -106,11 +100,7 @@ export const createFetchService = (): HttpService => {
     return response.json();
   };
 
-  const post = async <T>(
-    url: string,
-    body: any,
-    headers?: { [key: string]: string },
-  ): Promise<T> => {
+  const post = async <T>(url: string, body: any, headers?: { [key: string]: string }): Promise<T> => {
     const response = await fetch(url, {
       method: "POST",
       headers,
@@ -123,5 +113,60 @@ export const createFetchService = (): HttpService => {
   return {
     get,
     post,
+  };
+};
+
+export const createStorageWrapper = (storage: StorageService): StorageWrapper => {
+  const get = async (key: StorageKey) => {
+    if (key === "appState") {
+      const result = await storage.get(key);
+
+      return result ? JSON.parse(result) : null;
+    }
+
+    const result = await storage.get("appState");
+
+    return result ? JSON.parse(result)[key] : null;
+  };
+
+  const set = async (key: StorageKey, value: any) => {
+    if (key === "appState") {
+      return storage.set(key, JSON.stringify(value));
+    }
+
+    const result = await storage.get("appState");
+
+    if (!result) throw new Error("Couldnt get appState");
+
+    const parsed = JSON.parse(result);
+
+    const newRes = {
+      ...parsed,
+      [key]: value,
+    };
+
+    return storage.set("appState", JSON.stringify(newRes));
+  };
+
+  const remove = async (key: StorageKey) => {
+    if (key === "appState") {
+      return storage.remove(key);
+    }
+
+    const result = await storage.get("appState");
+
+    if (!result) return;
+
+    const parsed = JSON.parse(result);
+
+    delete parsed[key];
+
+    return storage.set("appState", JSON.stringify(parsed));
+  };
+
+  return {
+    get,
+    set,
+    remove,
   };
 };

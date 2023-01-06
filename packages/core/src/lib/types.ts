@@ -1,3 +1,5 @@
+export type MaybePromise<T> = T | Promise<T>;
+
 export type AuthConfig = {
   responseType: "code";
   clientId: string;
@@ -8,8 +10,8 @@ export type AuthConfig = {
   authorizeEndpoint?: string;
   tokenEndpoint?: string;
   endsessionEndpoint?: string;
-  jwks: JWKS | null;
-  queryParams?: QueryParams;
+  jwks: JWKS | undefined;
+  queryParams?: ExtraQueryParams;
   validateDiscovery?: boolean;
   discovery?: boolean;
   clockSkewSeconds?: number;
@@ -18,12 +20,14 @@ export type AuthConfig = {
   preloadDiscoveryDocument?: boolean;
 };
 
-export type Actions = {
-  redirect: (url: string) => void;
-  parseUrl: () => string;
-  replaceUrlState: (url: string) => void;
-  randomBytes: (size: number) => Promise<Uint8Array> | Uint8Array;
-  authStateChange: (authState: string) => void;
+export type Adapters = {
+  redirect: (url: string) => MaybePromise<void>;
+  parseUrl: () => MaybePromise<string>;
+  replaceUrlState: (url: string) => MaybePromise<void>;
+  randomBytes: (size: number) => MaybePromise<Uint8Array>;
+  storage: StorageService;
+  httpService: HttpService;
+  logger?: Logger;
 };
 
 export type AuthBaseParams = {
@@ -31,9 +35,25 @@ export type AuthBaseParams = {
   client_id: string;
   redirect_uri: string;
   scope: string;
+};
+
+export type AppStateParams = AuthBaseParams & {
+  nonce: string;
+  codeVerifier: string;
+  sendUserBackTo: string;
+  state: string;
+};
+
+export type AuthParams = AuthBaseParams & ExtraQueryParams;
+
+export type ExtraQueryParams = {
+  audience?: string;
+  code_challenge?: string;
+  code_challenge_method?: "S256";
+  code_verifier?: string;
+  nonce?: string;
   state?: string;
   response_mode?: "query" | "fragment";
-  nonce?: string;
   display?: "page" | "popup" | "touch" | "wap";
   prompt?: "none" | "consent" | "login" | "select_account";
   max_age?: number;
@@ -43,20 +63,13 @@ export type AuthBaseParams = {
   acr_values?: string;
 };
 
-export type ExtraQueryParams = Record<"audience", string>;
-
-type StateParams = {
-  session: Session;
-  nonce: string;
-  codeVerifier: string;
-  sendUserBackTo: string;
-  discoveryDocument: DiscoveryDocument;
-  jwks: JWKS;
+type OAuthResult = {
+  session?: Session;
+  discoveryDocument?: DiscoveryDocument;
+  jwks?: JWKS;
 };
 
-export type QueryParams = Record<string, number | string | boolean>;
-
-export type SessionParams = AuthBaseParams & StateParams & ExtraQueryParams;
+export type SessionParams = AppStateParams & OAuthResult & ExtraQueryParams;
 
 export type SessionParamKeys = keyof SessionParams;
 
@@ -109,7 +122,7 @@ type IdTokenBase = {
   azp?: string;
 };
 
-export type IdToken = IdTokenBase & QueryParams;
+export type IdToken = IdTokenBase;
 
 export type Session = {
   access_token: string;
@@ -143,21 +156,20 @@ export type JWT = {
 };
 
 export type StorageService = {
-  get<K extends StorageKey>(
-    key: K,
-  ): StorageReturnType<K> | null | Promise<StorageReturnType<K> | null>;
-  set<K extends StorageKey, T>(key: K, value: T): void | Promise<void>;
-  remove<K extends StorageKey>(key: K): void | Promise<void>;
-  clear(): void | Promise<void>;
+  get(key: string): MaybePromise<string | undefined>;
+  set(key: string, value: string): MaybePromise<void>;
+  remove(key: string): MaybePromise<void>;
 };
 
-type StorageReturnType<K> = K extends "appState"
-  ? SessionParams
-  : K extends SessionParamKeys
-  ? SessionParams[K]
-  : never;
+export type StorageWrapper = {
+  get<K extends StorageKey>(key: K): MaybePromise<StorageReturnType<K> | undefined>;
+  set<K extends StorageKey>(key: K, value: StorageReturnType<K>): MaybePromise<void>;
+  remove(key: StorageKey): MaybePromise<void>;
+};
 
-type StorageKey = SessionParamKeys | "appState";
+export type StorageReturnType<K> = K extends "appState" ? SessionParams : K extends SessionParamKeys ? SessionParams[K] : never;
+
+export type StorageKey = SessionParamKeys | "appState";
 
 export type Logger = {
   log(message: string, ...optionalParams: any[]): void;
@@ -168,14 +180,7 @@ export type Logger = {
 export type HttpService = {
   get<T>(url: string, headers?: { [key: string]: string }): Promise<T>;
 
-  post<T>(
-    url: string,
-    body: any,
-    headers?: { [key: string]: string },
-  ): Promise<T>;
+  post<T>(url: string, body: any, headers?: { [key: string]: string }): Promise<T>;
 };
 
-export type AuthenticationState =
-  | "unauthenticated"
-  | "authenticating"
-  | "authenticated";
+export type AuthenticationState = "unauthenticated" | "authenticating" | "authenticated";

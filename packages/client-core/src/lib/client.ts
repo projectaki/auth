@@ -1,9 +1,6 @@
 import {
   AuthConfig,
-  StorageService,
-  HttpService,
-  Logger,
-  Actions,
+  Adapters,
   DiscoveryDocument,
   JWKS,
   AuthenticationState,
@@ -22,21 +19,22 @@ import {
   SessionParams,
   createRefreshTokenRequestBody,
   createTokenRequestBody,
+  createStorageWrapper,
+  AppStateParams,
 } from "@authts/core";
 
 type OidcClientConfig = {
   authConfig: AuthConfig;
-  storage: StorageService;
-  httpService: HttpService;
-  actions: Actions;
-  logger?: Logger;
+  adapters: Adapters;
 };
 
-export const createCoreClient = ({ authConfig, storage, httpService, actions }: OidcClientConfig) => {
-  let discoveryDocument: DiscoveryDocument | null;
-  let jwks: JWKS | null;
-  let config = authConfig;
+export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => {
+  let _discoveryDocument: DiscoveryDocument | undefined;
+  let _jwks: JWKS | undefined;
+  let _config = authConfig;
   let _authState: AuthenticationState = "unauthenticated";
+  let _storage = createStorageWrapper(adapters.storage);
+  let _onAuthStateChange: ((authState: AuthenticationState) => void) | null = () => {};
 
   const getAuthState = () => {
     return _authState;
@@ -45,13 +43,13 @@ export const createCoreClient = ({ authConfig, storage, httpService, actions }: 
   const signIn = async (extraParams?: ExtraQueryParams) => {
     const authUrl = await _createAuthUrlAndSaveState(extraParams);
 
-    actions.redirect(authUrl);
+    adapters.redirect(authUrl);
   };
 
   const signOutLocal = () => {
     _removeLocalSession();
 
-    actions.redirect(config.postLogoutRedirectUri);
+    adapters.redirect(_config.postLogoutRedirectUri);
   };
 
   const signOut = async (queryParams?: ExtraQueryParams) => {
@@ -59,11 +57,11 @@ export const createCoreClient = ({ authConfig, storage, httpService, actions }: 
 
     _removeLocalSession();
 
-    actions.redirect(logoutUrl);
+    adapters.redirect(logoutUrl);
   };
 
   const getSession = async () => {
-    const appState = await storage.get("appState");
+    const appState = await _storage.get("appState");
 
     if (!appState || !appState.session) return null;
 
@@ -71,13 +69,13 @@ export const createCoreClient = ({ authConfig, storage, httpService, actions }: 
 
     if (!token) return null;
 
-    const isValid: boolean = validateIdToken(token, config, appState.nonce, appState.max_age);
+    const isValid: boolean = validateIdToken(token, _config, appState.nonce, appState.max_age);
 
     return isValid ? appState.session : null;
   };
 
   const refreshTokens = async (): Promise<void> => {
-    const appState = await storage.get("appState");
+    const appState = await _storage.get("appState");
 
     if (!appState) throw new Error("No appState found!");
 
@@ -85,17 +83,17 @@ export const createCoreClient = ({ authConfig, storage, httpService, actions }: 
 
     validateAtHash(newAuthResult.id_token, newAuthResult.access_token);
 
-    const isValid = validateIdToken(newAuthResult.id_token, config, appState.nonce, appState.max_age);
+    const isValid = validateIdToken(newAuthResult.id_token, _config, appState.nonce, appState.max_age);
 
     if (!isValid) throw new Error("Invalid id token, after refreshing tokens!");
 
-    await storage.set("session", newAuthResult);
+    await _storage.set("session", newAuthResult);
   };
 
   const authCallback = async () => {
     await _loadDiscoveryIfEnabled();
 
-    const appState = await storage.get("appState");
+    const appState = await _storage.get("appState");
 
     if (!appState) throw new Error("No appState found");
 
@@ -105,25 +103,29 @@ export const createCoreClient = ({ authConfig, storage, httpService, actions }: 
 
     validateAtHash(res.id_token, res.access_token);
 
-    const isValidIdToken = validateIdToken(res.id_token, config, appState.nonce, appState.max_age);
+    const isValidIdToken = validateIdToken(res.id_token, _config, appState.nonce, appState.max_age);
 
     if (!isValidIdToken) throw new Error("Invalid id token");
 
-    await storage.set("session", res);
+    await _storage.set("session", res);
 
-    if (appState.sendUserBackTo) actions.replaceUrlState(appState.sendUserBackTo);
+    if (appState.sendUserBackTo) adapters.replaceUrlState(appState.sendUserBackTo);
+  };
+
+  const onAuthStateChange = (callback: (authState: AuthenticationState) => void) => {
+    _onAuthStateChange = callback;
   };
 
   const _setAuthState = (authState: AuthenticationState) => {
     _authState = authState;
-    if (typeof actions.authStateChange === "function") actions.authStateChange(authState);
+    if (typeof _onAuthStateChange === "function") _onAuthStateChange(authState);
   };
 
   const _loadDiscoveryDocument = async () => {
     try {
       if (!(await _loadDiscoveryDocumentFromStorage())) await _loadDiscoveryDocumentFromWellKnown();
 
-      if (config.validateDiscovery !== false) _validateDiscoveryDocument();
+      if (_config.validateDiscovery !== false) _validateDiscoveryDocument();
 
       if (!(await _loadJwksFromStorage())) await _loadJwks();
 
@@ -135,43 +137,43 @@ export const createCoreClient = ({ authConfig, storage, httpService, actions }: 
   };
 
   const _loadDiscoveryDocumentFromWellKnown = async (): Promise<DiscoveryDocument> => {
-    const url = createDiscoveryUrl(config.issuer);
+    const url = createDiscoveryUrl(_config.issuer);
 
-    discoveryDocument = await httpService.get<DiscoveryDocument>(url);
+    _discoveryDocument = await adapters.httpService.get<DiscoveryDocument>(url);
 
-    if (!discoveryDocument) throw new Error("Discovery document is required!");
+    if (!_discoveryDocument) throw new Error("Discovery document is required!");
 
-    await storage.set("discoveryDocument", discoveryDocument);
+    await _storage.set("discoveryDocument", _discoveryDocument);
 
-    return discoveryDocument;
+    return _discoveryDocument;
   };
 
   const _loadDiscoveryDocumentFromStorage = async () => {
-    discoveryDocument = await storage.get("discoveryDocument");
+    _discoveryDocument = await _storage.get("discoveryDocument");
 
-    return !!discoveryDocument;
+    return !!_discoveryDocument;
   };
 
   const _validateDiscoveryDocument = () => {
-    if (!discoveryDocument) throw new Error("Discovery document is required!");
+    if (!_discoveryDocument) throw new Error("Discovery document is required!");
 
-    const issuerWithoutTrailingSlash = trimTrailingSlash(discoveryDocument.issuer);
-    if (issuerWithoutTrailingSlash !== config.issuer) throw new Error("Invalid issuer in discovery document");
+    const issuerWithoutTrailingSlash = trimTrailingSlash(_discoveryDocument.issuer);
+    if (issuerWithoutTrailingSlash !== _config.issuer) throw new Error("Invalid issuer in discovery document");
   };
 
   const _loadJwksFromStorage = async () => {
-    jwks = await storage.get("jwks");
+    _jwks = await _storage.get("jwks");
 
-    return !!jwks;
+    return !!_jwks;
   };
 
   const _loadJwks = async () => {
     try {
-      jwks = await httpService.get<JWKS>(discoveryDocument!.jwks_uri);
+      _jwks = await adapters.httpService.get<JWKS>(_discoveryDocument!.jwks_uri);
 
-      storage.set("jwks", jwks);
+      await _storage.set("jwks", _jwks);
 
-      return !!jwks;
+      return !!_jwks;
     } catch (e) {
       console.error(e);
       throw e;
@@ -179,39 +181,41 @@ export const createCoreClient = ({ authConfig, storage, httpService, actions }: 
   };
 
   const _createAuthUrlAndSaveState = async (extraParams?: ExtraQueryParams) => {
-    const state = await createNonce(32, actions);
+    const state = await createNonce(32, adapters);
 
-    const [nonce, hashedNonce] = await createVerifierAndChallengePair(actions, 32);
+    const [nonce, hashedNonce] = await createVerifierAndChallengePair(adapters, 32);
 
-    const [codeVerifier, codeChallenge] = await createVerifierAndChallengePair(actions, undefined);
+    const [codeVerifier, codeChallenge] = await createVerifierAndChallengePair(adapters, undefined);
 
-    const params = createParamsFromConfig(config, extraParams);
+    const params = createParamsFromConfig(_config, extraParams);
 
-    const mergedParams = {
+    const currentUrl = await adapters.parseUrl();
+
+    const mergedParams: AppStateParams = {
       nonce,
       codeVerifier,
-      sendUserBackTo: window.location.href,
+      sendUserBackTo: currentUrl,
       state,
       ...params,
     };
 
-    await storage.set("appState", mergedParams);
+    await _storage.set("appState", mergedParams);
 
-    const authUrl = createAuthUrl(config, { ...params, state, nonce: hashedNonce }, codeChallenge);
+    const authUrl = createAuthUrl(_config, { ...params, state, nonce: hashedNonce }, codeChallenge);
 
     return authUrl;
   };
 
   const _createLogoutUrlAndSaveState = async (extraParams?: ExtraQueryParams) => {
-    if (!config.endsessionEndpoint) throw new Error("Endsession endpoint is not set!");
+    if (!_config.endsessionEndpoint) throw new Error("Endsession endpoint is not set!");
 
     const params: any = {};
 
-    const idToken = (await storage.get("session"))?.id_token;
+    const idToken = (await _storage.get("session"))?.id_token;
 
     if (idToken) params["id_token_hint"] = idToken;
 
-    const logoutUrl = createLogoutUrl(config.endsessionEndpoint, {
+    const logoutUrl = createLogoutUrl(_config.endsessionEndpoint, {
       ...extraParams,
       ...params,
     });
@@ -220,20 +224,20 @@ export const createCoreClient = ({ authConfig, storage, httpService, actions }: 
   };
 
   const _loadDiscoveryIfEnabled = async () => {
-    if (config.discovery !== false && !discoveryDocument) {
+    if (_config.discovery !== false && !_discoveryDocument) {
       await _loadDiscoveryDocument();
 
-      config = {
-        ...config,
-        authorizeEndpoint: discoveryDocument!.authorization_endpoint,
-        tokenEndpoint: discoveryDocument!.token_endpoint,
-        jwks: jwks,
+      _config = {
+        ..._config,
+        authorizeEndpoint: _discoveryDocument!.authorization_endpoint,
+        tokenEndpoint: _discoveryDocument!.token_endpoint,
+        jwks: _jwks,
       };
     }
   };
 
   const _processAuthResult = async (): Promise<Session> => {
-    const urlString = actions.parseUrl();
+    const urlString = await adapters.parseUrl();
 
     const url = new URL(urlString);
 
@@ -258,7 +262,7 @@ export const createCoreClient = ({ authConfig, storage, httpService, actions }: 
 
     if (!returnedState) throw new Error("State expected from query params!");
 
-    const storedState = await storage.get("state");
+    const storedState = await _storage.get("state");
 
     if (storedState !== returnedState) throw new Error("Invalid state!");
   };
@@ -268,7 +272,7 @@ export const createCoreClient = ({ authConfig, storage, httpService, actions }: 
 
     const code = <string>params.get("code");
 
-    actions.replaceUrlState(config.redirectUri);
+    adapters.replaceUrlState(_config.redirectUri);
 
     try {
       const session = await _fetchTokensWithCode(code);
@@ -283,7 +287,7 @@ export const createCoreClient = ({ authConfig, storage, httpService, actions }: 
   };
 
   const _fetchTokensWithRefreshToken = async (appState: SessionParams): Promise<Session> => {
-    const session = await storage.get("session");
+    const session = await _storage.get("session");
 
     if (!session) throw new Error("No auth result found!");
 
@@ -291,9 +295,9 @@ export const createCoreClient = ({ authConfig, storage, httpService, actions }: 
 
     if (!refreshToken) throw new Error("No refresh token found!");
 
-    const requestBody = createRefreshTokenRequestBody(config, refreshToken);
+    const requestBody = createRefreshTokenRequestBody(_config, refreshToken);
 
-    const tokenResponse = await httpService.post<Session>(config.tokenEndpoint!, requestBody, {
+    const tokenResponse = await adapters.httpService.post<Session>(_config.tokenEndpoint!, requestBody, {
       "Content-Type": "application/x-www-form-urlencoded",
     });
 
@@ -301,23 +305,23 @@ export const createCoreClient = ({ authConfig, storage, httpService, actions }: 
   };
 
   const _removeLocalSession = async () => {
-    const appState = await storage.get("appState");
+    const appState = await _storage.get("appState");
 
     if (!appState) throw new Error("No app state found!");
 
-    await storage.clear();
+    await _storage.remove("appState");
     _setAuthState("unauthenticated");
   };
 
   const _fetchTokensWithCode = async (code: string): Promise<Session> => {
-    const appState = await storage.get("appState");
+    const appState = await _storage.get("appState");
 
     if (!appState) throw new Error("No app state found!");
 
-    const body = createTokenRequestBody(config, code, appState.codeVerifier);
+    const body = createTokenRequestBody(_config, code, appState.codeVerifier);
 
     try {
-      const tokenResponse = await httpService.post<Session>(config.tokenEndpoint!, body, {
+      const tokenResponse = await adapters.httpService.post<Session>(_config.tokenEndpoint!, body, {
         "Content-Type": "application/x-www-form-urlencoded",
       });
 
@@ -328,7 +332,7 @@ export const createCoreClient = ({ authConfig, storage, httpService, actions }: 
     }
   };
 
-  if (config.preloadDiscoveryDocument) {
+  if (_config.preloadDiscoveryDocument) {
     _loadDiscoveryIfEnabled();
   }
 
@@ -340,5 +344,6 @@ export const createCoreClient = ({ authConfig, storage, httpService, actions }: 
     getAuthState,
     refreshTokens,
     getSession,
+    onAuthStateChange,
   };
 };
