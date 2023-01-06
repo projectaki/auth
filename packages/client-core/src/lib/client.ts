@@ -201,7 +201,7 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
 
     await _storage.set("appState", mergedParams);
 
-    const authUrl = createAuthUrl(_config, { ...params, state, nonce: hashedNonce }, codeChallenge);
+    const authUrl = createAuthUrl(_config, { ...params, state, nonce: hashedNonce, code_challenge: codeChallenge });
 
     return authUrl;
   };

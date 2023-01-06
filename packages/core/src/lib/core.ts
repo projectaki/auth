@@ -25,15 +25,15 @@ export const createParamsFromConfig = (authConfig: AuthConfig, extraParams?: Ext
   return { ...authUrlParams, ...authConfig.queryParams, ...extraParams };
 };
 
-export const createAuthUrl = (authConfig: AuthConfig, authUrlParams: AuthParams, codeChallenge?: string) => {
+export const createAuthUrl = (authConfig: AuthConfig, authUrlParams: AuthParams) => {
   const queryParams = new URLSearchParams();
 
   typedObjectKeys(authUrlParams).forEach((key) => {
     queryParams.append(key, authUrlParams[key]!.toString());
   });
 
-  if (codeChallenge) queryParams.append("code_challenge", codeChallenge);
-  if (codeChallenge) queryParams.append("code_challenge_method", "S256");
+  if (authUrlParams.code_challenge) queryParams.append("code_challenge", authUrlParams.code_challenge);
+  if (authUrlParams.code_challenge) queryParams.append("code_challenge_method", "S256");
 
   if (!authConfig.disableRefreshTokenConsent) {
     if (authUrlParams["scope"].split(" ").includes("offline_access")) queryParams.append("prompt", "consent");
