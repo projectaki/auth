@@ -134,9 +134,7 @@ export const createStorageWrapper = (storage: StorageService): StorageWrapper =>
       return storage.set(key, JSON.stringify(value));
     }
 
-    const result = await storage.get("appState");
-
-    if (!result) throw new Error("Couldnt get appState");
+    const result = (await storage.get("appState")) ?? "{}";
 
     const parsed = JSON.parse(result);
 

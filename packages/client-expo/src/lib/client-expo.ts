@@ -1,51 +1,45 @@
-import { createCoreClient } from "@authts/client-core";
+import { AuthConfig, createCoreClient, createFetchService } from "@authts/client-core";
+import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
+import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const expoActions = {
-  authStateChange(authState: any) {
-    console.log("authStateChange", authState);
-  },
-  parseUrl() {
-    console.log("parseUrl");
-    return "";
+  async parseUrl() {
+    const url = await Linking.getInitialURL();
+    console.log("parseUrl", url);
+    return url!;
   },
   randomBytes(size: number) {
     return new Uint8Array(size);
   },
   redirect(url: string) {
     console.log("redirect", url);
+    WebBrowser.openBrowserAsync(url);
   },
-  replaceUrlState(url: string) {
-    console.log("replaceUrlState", url);
-  },
-};
-
-const expoFetch = {
-  get(url: any, headers: any) {
-    return { data: "" } as any;
-  },
-  post(url: any, body: any, headers: any) {
-    return { data: "" } as any;
-  },
+  replaceUrlState(url: string) {},
 };
 
 const expoStorage = {
-  get(key: any) {
-    return "" as any;
+  get(key: string) {
+    return AsyncStorage.getItem(key);
   },
-  clear() {},
-  remove(key: any) {},
-  set(key: any, value: any) {},
+  remove(key: string) {
+    return AsyncStorage.removeItem(key);
+  },
+  set(key: string, value: string) {
+    return AsyncStorage.setItem(key, value);
+  },
 };
 
-export const createExpoClient = (config: any, x: (a: any) => void) =>
+export const createExpoClient = (config: AuthConfig) =>
   createCoreClient({
-    actions: { ...expoActions, authStateChange: x },
     authConfig: config,
-    httpService: expoFetch,
-    storage: expoStorage,
-    logger: {
-      error(message, ...optionalParams) {},
-      log(message, ...optionalParams) {},
-      warn(message, ...optionalParams) {},
+    adapters: {
+      httpService: createFetchService(),
+      ...expoActions,
+      storage: expoStorage as any,
     },
   });
+
+export type ExpoClient = ReturnType<typeof createExpoClient>;

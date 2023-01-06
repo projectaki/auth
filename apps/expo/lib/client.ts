@@ -1,13 +1,18 @@
-import { createExpoClient } from "@authts/client-expo";
+import { AuthConfig, createExpoClient } from "@authts/client-expo";
+import "react-native-url-polyfill/auto";
 
-const config = {
-  clientId: "my-client-id",
-  issuer: "https://my-issuer",
-  redirectUri: "my-redirect-uri",
-  postLogoutRedirectUri: "my-post-logout-redirect-uri",
+const config: AuthConfig = {
+  clientId: "zIB73oRSqof13mYtTIud2usuxtLF7MlU",
+  issuer: "https://identity-auth.eu.auth0.com",
+  redirectUri: "exp://192.168.50.154:19000",
+  postLogoutRedirectUri: "exp://192.168.50.154:19000/logout",
   responseType: "code",
   scope: "openid profile email",
-  jwks: null,
+  jwks: undefined,
+  preloadDiscoveryDocument: true,
+  queryParams: {
+    audience: "https://identity.com",
+  },
 };
 
-const client = createExpoClient(config, (x) => console.log(x));
+export const client = createExpoClient(config);

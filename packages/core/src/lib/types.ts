@@ -1,5 +1,7 @@
 export type MaybePromise<T> = T | Promise<T>;
 
+export type InferReturnType<T> = T extends (...args: any[]) => infer R ? R : never;
+
 export type AuthConfig = {
   responseType: "code";
   clientId: string;

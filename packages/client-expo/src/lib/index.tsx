@@ -1,24 +1,13 @@
 import React from "react";
 import { createContext } from "react";
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
-
-interface Session {
-  id_token: string;
-  access_token: string;
-  expires_in: number;
-  refresh_token: string;
-  token_type: string;
-  user: User;
-}
+import { Session } from "@authts/client-core";
+import { ExpoClient } from "./client-expo";
+import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
 
 type ContextProps = {
   session: Session | null;
-  user: User | null;
+  //user: User | null;
   loaded: boolean;
 };
 
@@ -26,23 +15,28 @@ const AuthContext = createContext<Partial<ContextProps>>({});
 
 interface Props {
   children: React.ReactNode;
+  client: ExpoClient;
 }
 
-const AuthProvider = (props: Props) => {
+export const AuthProvider = ({ children, client }: Props) => {
   const [session, setSession] = React.useState<Session | null>(null);
-  const [user, setUser] = React.useState<User | null>(null);
+  //const [user, setUser] = React.useState<User | null>(null);
   const [loaded, setLoaded] = React.useState(false);
+
+  const url = Linking.useURL();
 
   // Check session on mount
   React.useEffect(() => {
+    const run = async () => {
+      const session = await client.getSession();
+      setSession(session);
+
+      client.onAuthStateChange((session) => {
+        if (session === "unauthenticated") setSession(null);
+      });
+    };
     try {
-      // Get session from storage
-      // If session doesnt exists set session to null
-      // If session exists, check if session is expired
-      // If session is not expired, set session
-      // If session is expired, check for refresh token
-      // If refresh token is expired, set session to null
-      // If refresh token is not expired, use refresh token to get new session
+      run();
     } catch (error) {
       console.error("CLIENT_SESSION_ERROR", error as Error);
     } finally {
@@ -52,10 +46,10 @@ const AuthProvider = (props: Props) => {
 
   // Handle callback
   React.useEffect(() => {
-    // extract params from url
-    // use code to request tokens
-    // set session
-  }, []);
+    console.log("URL", url);
+    WebBrowser.dismissBrowser();
+    client.authCallback();
+  }, [url]);
 
   // Check session periodically
 
@@ -72,11 +66,11 @@ const AuthProvider = (props: Props) => {
     <AuthContext.Provider
       value={{
         session,
-        user,
+        //user,
         loaded,
       }}
     >
-      {props.children}
+      {children}
     </AuthContext.Provider>
   );
 };

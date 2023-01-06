@@ -91,6 +91,7 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
   };
 
   const authCallback = async () => {
+    console.log("authCallback");
     await _loadDiscoveryIfEnabled();
 
     const appState = await _storage.get("appState");

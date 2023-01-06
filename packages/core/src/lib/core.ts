@@ -32,7 +32,6 @@ export const createAuthUrl = (authConfig: AuthConfig, authUrlParams: AuthParams)
     queryParams.append(key, authUrlParams[key]!.toString());
   });
 
-  if (authUrlParams.code_challenge) queryParams.append("code_challenge", authUrlParams.code_challenge);
   if (authUrlParams.code_challenge) queryParams.append("code_challenge_method", "S256");
 
   if (!authConfig.disableRefreshTokenConsent) {
