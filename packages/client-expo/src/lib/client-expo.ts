@@ -46,9 +46,11 @@ export const createExpoClient = (config: AuthConfig) => {
   return {
     ...coreClient,
     signIn: async (extraParams?: ExtraQueryParams | undefined) => {
-      const result = (await coreClient.signIn(extraParams)) as string;
+      const result = await coreClient.signIn(extraParams);
 
-      coreClient.authCallback(result);
+      if (result) {
+        coreClient.authCallback(result);
+      }
     },
   };
 };

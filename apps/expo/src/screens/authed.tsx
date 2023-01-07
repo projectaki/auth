@@ -9,6 +9,7 @@ function Authed() {
         onPress={() =>
           client.signOut({
             returnTo: "exp://192.168.50.154:19000",
+            client_id: "zIB73oRSqof13mYtTIud2usuxtLF7MlU",
           })
         }
       >
