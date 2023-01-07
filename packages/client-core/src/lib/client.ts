@@ -21,6 +21,7 @@ import {
   createTokenRequestBody,
   createStorageWrapper,
   AppStateParams,
+  isAuthCb,
 } from "@authts/core";
 
 type OidcClientConfig = {
@@ -32,32 +33,36 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
   let _discoveryDocument: DiscoveryDocument | undefined;
   let _jwks: JWKS | undefined;
   let _config = authConfig;
-  let _authState: AuthenticationState = "unauthenticated";
+  let _session: Session | null = null;
   let _storage = createStorageWrapper(adapters.storage);
-  let _onAuthStateChange: ((authState: AuthenticationState) => void) | null = () => {};
+  let _cbUrl: string | undefined;
+  let _onAuthStateChange: ((authState: Session | null) => void) | null = () => {};
 
   const getAuthState = () => {
-    return _authState;
+    return _session;
   };
 
+  /**
+   *
+   * @param extraParams Query params that will be appended to the auth url
+   * @returns Url which the auth has redirected to or void if the redirect doesn't return a url
+   */
   const signIn = async (extraParams?: ExtraQueryParams) => {
     const authUrl = await _createAuthUrlAndSaveState(extraParams);
 
-    adapters.redirect(authUrl);
+    return await adapters.redirect(authUrl);
   };
 
   const signOutLocal = () => {
     _removeLocalSession();
-
-    adapters.redirect(_config.postLogoutRedirectUri);
   };
 
   const signOut = async (queryParams?: ExtraQueryParams) => {
     const logoutUrl = await _createLogoutUrlAndSaveState(queryParams);
 
-    _removeLocalSession();
+    await _removeLocalSession();
 
-    adapters.redirect(logoutUrl);
+    if (logoutUrl) await adapters.redirect(logoutUrl);
   };
 
   const getSession = async () => {
@@ -90,36 +95,44 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
     await _storage.set("session", newAuthResult);
   };
 
-  const authCallback = async () => {
-    console.log("authCallback");
-    await _loadDiscoveryIfEnabled();
+  const authCallback = async (url: string) => {
+    if (!isAuthCb(url, _config)) return;
 
-    const appState = await _storage.get("appState");
+    _cbUrl = url;
 
-    if (!appState) throw new Error("No appState found");
+    try {
+      await _loadDiscoveryIfEnabled();
 
-    _setAuthState("authenticating");
+      const appState = await _storage.get("appState");
 
-    const res = await _processAuthResult();
+      if (!appState) throw new Error("No appState found");
 
-    validateAtHash(res.id_token, res.access_token);
+      const res = await _processAuthResult();
 
-    const isValidIdToken = validateIdToken(res.id_token, _config, appState.nonce, appState.max_age);
+      validateAtHash(res.id_token, res.access_token);
 
-    if (!isValidIdToken) throw new Error("Invalid id token");
+      const isValidIdToken = validateIdToken(res.id_token, _config, appState.nonce, appState.max_age);
 
-    await _storage.set("session", res);
+      if (!isValidIdToken) throw new Error("Invalid id token");
 
-    if (appState.sendUserBackTo) adapters.replaceUrlState(appState.sendUserBackTo);
+      await _storage.set("session", res);
+
+      if (appState.sendUserBackTo) adapters.replaceUrlState(appState.sendUserBackTo);
+
+      _setAuthState(res);
+    } catch (e) {
+      console.error(e);
+      _setAuthState(null);
+    }
   };
 
-  const onAuthStateChange = (callback: (authState: AuthenticationState) => void) => {
+  const onAuthStateChange = (callback: (session: Session | null) => void) => {
     _onAuthStateChange = callback;
   };
 
-  const _setAuthState = (authState: AuthenticationState) => {
-    _authState = authState;
-    if (typeof _onAuthStateChange === "function") _onAuthStateChange(authState);
+  const _setAuthState = (session: Session | null) => {
+    _session = session;
+    if (typeof _onAuthStateChange === "function") _onAuthStateChange(session);
   };
 
   const _loadDiscoveryDocument = async () => {
@@ -208,7 +221,10 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
   };
 
   const _createLogoutUrlAndSaveState = async (extraParams?: ExtraQueryParams) => {
-    if (!_config.endsessionEndpoint) throw new Error("Endsession endpoint is not set!");
+    if (!_config.endsessionEndpoint) {
+      console.log("No endsession endpoint found, cannot log out at idp");
+      return null;
+    }
 
     const params: any = {};
 
@@ -238,13 +254,13 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
   };
 
   const _processAuthResult = async (): Promise<Session> => {
-    const urlString = await adapters.parseUrl();
+    const urlString = _cbUrl!;
 
-    const url = new URL(urlString);
+    const [_, search] = urlString.split("?");
 
-    const params = url.searchParams;
+    const params = new URLSearchParams(search);
 
-    _checkState(params);
+    await _checkState(params);
 
     if (params.has("error")) throw new Error(<string>params.get("error"));
 
@@ -273,7 +289,7 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
 
     const code = <string>params.get("code");
 
-    adapters.replaceUrlState(_config.redirectUri);
+    await adapters.replaceUrlState(_config.redirectUri);
 
     try {
       const session = await _fetchTokensWithCode(code);
@@ -311,7 +327,8 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
     if (!appState) throw new Error("No app state found!");
 
     await _storage.remove("appState");
-    _setAuthState("unauthenticated");
+
+    _setAuthState(null);
   };
 
   const _fetchTokensWithCode = async (code: string): Promise<Session> => {

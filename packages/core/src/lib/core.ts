@@ -289,3 +289,15 @@ const validateXHash = (idToken: string, getXHash: (jwt: JWT) => string, toValida
 
   if (xHash !== x_hash) throw new Error("Invalid");
 };
+
+export const isAuthCb = (url: string, authConfig: AuthConfig) => {
+  const [path, search] = url.split("?");
+
+  if (!search) return false;
+
+  const params = new URLSearchParams(search);
+
+  if (path !== authConfig.redirectUri) return false;
+
+  return true;
+};

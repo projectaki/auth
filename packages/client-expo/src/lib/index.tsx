@@ -1,9 +1,7 @@
 import React from "react";
-import { createContext } from "react";
+import { createContext, useContext } from "react";
 import { Session } from "@authts/client-core";
 import { ExpoClient } from "./client-expo";
-import * as Linking from "expo-linking";
-import * as WebBrowser from "expo-web-browser";
 
 type ContextProps = {
   session: Session | null;
@@ -18,12 +16,12 @@ interface Props {
   client: ExpoClient;
 }
 
+export const useSession = () => useContext(AuthContext);
+
 export const AuthProvider = ({ children, client }: Props) => {
   const [session, setSession] = React.useState<Session | null>(null);
   //const [user, setUser] = React.useState<User | null>(null);
   const [loaded, setLoaded] = React.useState(false);
-
-  const url = Linking.useURL();
 
   // Check session on mount
   React.useEffect(() => {
@@ -32,7 +30,7 @@ export const AuthProvider = ({ children, client }: Props) => {
       setSession(session);
 
       client.onAuthStateChange((session) => {
-        if (session === "unauthenticated") setSession(null);
+        setSession(session);
       });
     };
     try {
@@ -43,13 +41,6 @@ export const AuthProvider = ({ children, client }: Props) => {
       setLoaded(true);
     }
   }, []);
-
-  // Handle callback
-  React.useEffect(() => {
-    console.log("URL", url);
-    WebBrowser.dismissBrowser();
-    client.authCallback();
-  }, [url]);
 
   // Check session periodically
 

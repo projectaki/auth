@@ -23,7 +23,7 @@ export type AuthConfig = {
 };
 
 export type Adapters = {
-  redirect: (url: string) => MaybePromise<void>;
+  redirect: (url: string) => MaybePromise<string | void>;
   parseUrl: () => MaybePromise<string>;
   replaceUrlState: (url: string) => MaybePromise<void>;
   randomBytes: (size: number) => MaybePromise<Uint8Array>;
@@ -63,6 +63,7 @@ export type ExtraQueryParams = {
   id_token_hint?: string;
   login_hint?: string;
   acr_values?: string;
+  returnTo?: string;
 };
 
 type OAuthResult = {

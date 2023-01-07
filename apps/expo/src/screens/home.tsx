@@ -4,8 +4,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { client } from "../../lib/client";
 
 export const HomeScreen = () => {
-  client.onAuthStateChange((x) => console.log(x));
-
   return (
     <SafeAreaView className="bg-[#2e026d] bg-gradient-to-b from-[#2e026d] to-[#15162c]">
       <View className="h-full w-full p-4">
