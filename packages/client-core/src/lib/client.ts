@@ -3,7 +3,6 @@ import {
   Adapters,
   DiscoveryDocument,
   JWKS,
-  AuthenticationState,
   ExtraQueryParams,
   validateIdToken,
   validateAtHash,
@@ -16,12 +15,12 @@ import {
   createLogoutUrl,
   Session,
   validateCHash,
-  SessionParams,
   createRefreshTokenRequestBody,
   createTokenRequestBody,
   createStorageWrapper,
   AppStateParams,
   isAuthCb,
+  StoredValues,
 } from "@authts/core";
 
 type OidcClientConfig = {
@@ -68,7 +67,7 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
   const getSession = async () => {
     const appState = await _storage.get("appState");
 
-    if (!appState || !appState.session) return null;
+    if (!appState || !appState.session || !_discoveryDocument || !_jwks) return null;
 
     const token = appState.session.id_token;
 
@@ -102,6 +101,8 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
 
     try {
       await _loadDiscoveryIfEnabled();
+
+      console.log("authCallback", "discovery loaded");
 
       const appState = await _storage.get("appState");
 
@@ -243,14 +244,14 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
   const _loadDiscoveryIfEnabled = async () => {
     if (_config.discovery !== false && !_discoveryDocument) {
       await _loadDiscoveryDocument();
-
-      _config = {
-        ..._config,
-        authorizeEndpoint: _discoveryDocument!.authorization_endpoint,
-        tokenEndpoint: _discoveryDocument!.token_endpoint,
-        jwks: _jwks,
-      };
     }
+
+    _config = {
+      ..._config,
+      authorizeEndpoint: _discoveryDocument!.authorization_endpoint,
+      tokenEndpoint: _discoveryDocument!.token_endpoint,
+      jwks: _jwks,
+    };
   };
 
   const _processAuthResult = async (): Promise<Session> => {
@@ -303,7 +304,7 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
     }
   };
 
-  const _fetchTokensWithRefreshToken = async (appState: SessionParams): Promise<Session> => {
+  const _fetchTokensWithRefreshToken = async (appState: StoredValues): Promise<Session> => {
     const session = await _storage.get("session");
 
     if (!session) throw new Error("No auth result found!");
@@ -331,6 +332,27 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
     _setAuthState(null);
   };
 
+  const _initSessionIfExists = async () => {
+    const appState = await _storage.get("appState");
+
+    _jwks = appState?.jwks;
+    _discoveryDocument = appState?.discoveryDocument;
+
+    if (!appState || !appState.session || !_discoveryDocument || !_jwks) return;
+
+    const token = appState.session.id_token;
+
+    if (!token) return;
+
+    const isValid: boolean = validateIdToken(token, _config, appState.nonce, appState.max_age);
+
+    if (!isValid) return;
+
+    _session = appState.session;
+
+    _setAuthState(appState.session);
+  };
+
   const _fetchTokensWithCode = async (code: string): Promise<Session> => {
     const appState = await _storage.get("appState");
 
@@ -351,7 +373,11 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
   };
 
   if (_config.preloadDiscoveryDocument) {
-    _loadDiscoveryIfEnabled();
+    _loadDiscoveryIfEnabled().then(() => {
+      _initSessionIfExists();
+    });
+  } else {
+    _initSessionIfExists();
   }
 
   return {

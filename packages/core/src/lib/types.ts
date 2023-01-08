@@ -73,9 +73,9 @@ type OAuthResult = {
   jwks?: JWKS;
 };
 
-export type SessionParams = AppStateParams & OAuthResult & ExtraQueryParams;
+export type StoredValues = AppStateParams & OAuthResult & ExtraQueryParams;
 
-export type SessionParamKeys = keyof SessionParams;
+export type StoredValuesKeys = keyof StoredValues;
 
 export type AuthErrorParams = {
   error: AuthError;
@@ -171,9 +171,9 @@ export type StorageWrapper = {
   remove(key: StorageKey): MaybePromise<void>;
 };
 
-export type StorageReturnType<K> = K extends "appState" ? SessionParams : K extends SessionParamKeys ? SessionParams[K] : never;
+export type StorageReturnType<K> = K extends "appState" ? StoredValues : K extends StoredValuesKeys ? StoredValues[K] : never;
 
-export type StorageKey = SessionParamKeys | "appState";
+export type StorageKey = StoredValuesKeys | "appState";
 
 export type Logger = {
   log(message: string, ...optionalParams: any[]): void;

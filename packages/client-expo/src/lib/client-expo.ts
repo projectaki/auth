@@ -3,6 +3,7 @@ import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Random from "expo-random";
 
 const expoActions = {
   async parseUrl() {
@@ -10,10 +11,9 @@ const expoActions = {
     return url!;
   },
   randomBytes(size: number) {
-    return new Uint8Array(size);
+    return Random.getRandomBytes(size);
   },
   async redirect(url: string) {
-    console.log("redirect", url);
     const result = await WebBrowser.openAuthSessionAsync(url);
 
     return result.type === "success" ? result.url : undefined;

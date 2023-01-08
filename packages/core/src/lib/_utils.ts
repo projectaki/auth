@@ -1,6 +1,6 @@
 import { KJUR } from "jsrsasign";
 import base64 from "react-native-base64";
-import { Adapters, AuthConfig, HttpService, JWT, SessionParams, StorageKey, StorageService, StorageWrapper } from "./types";
+import { Adapters, AuthConfig, HttpService, JWT, StoredValues, StorageKey, StorageService, StorageWrapper } from "./types";
 
 export const typedObjectKeys = <T extends {}, K extends keyof T>(obj: T): K[] => {
   return Object.keys(obj) as K[];
