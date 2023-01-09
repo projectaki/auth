@@ -19,7 +19,6 @@ import {
   createTokenRequestBody,
   createStorageWrapper,
   AppStateParams,
-  isAuthCb,
   StoredValues,
 } from "@authts/core";
 
@@ -29,17 +28,10 @@ type OidcClientConfig = {
 };
 
 export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => {
-  let _discoveryDocument: DiscoveryDocument | undefined;
-  let _jwks: JWKS | undefined;
-  let _config = authConfig;
-  let _session: Session | null = null;
+  const _config = { ...authConfig };
   let _storage = createStorageWrapper(adapters.storage);
-  let _cbUrl: string | undefined;
-  let _onAuthStateChange: ((authState: Session | null) => void) | null = () => {};
-
-  const getAuthState = () => {
-    return _session;
-  };
+  let _configsLoaded = authConfig.autoDiscovery ? false : true;
+  let _onAuthStateChange: (session: Session | null) => void = () => {};
 
   /**
    *
@@ -52,30 +44,45 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
     return await adapters.redirect(authUrl);
   };
 
+  /**
+   * Removes the session from the configured storage and triggers and auth state change to null.
+   */
   const signOutLocal = () => {
-    _removeLocalSession();
+    return _endSession();
   };
 
+  /**
+   * Internally calls the signOutLocal method and then redirects to the configured logout url if it exists.
+   * @param queryParams Extra query params that will be appended to the logout url
+   * @returns Void or the redirected url.
+   */
   const signOut = async (queryParams?: ExtraQueryParams) => {
     const logoutUrl = await _createLogoutUrlAndSaveState(queryParams);
 
-    await _removeLocalSession();
+    await signOutLocal();
 
-    if (logoutUrl) await adapters.redirect(logoutUrl);
+    if (logoutUrl) return await adapters.redirect(logoutUrl);
   };
 
+  /**
+   * Gets the session from the configured storage.
+   * Will throw an error if the session exists, but the id token is invalid.
+   * @returns The session it exists and is valid and if the configs are loaded, otherwise null.
+   */
   const getSession = async () => {
-    const appState = await _storage.get("appState");
+    const _storedValues = await _storage.get("appState");
 
-    if (!appState || !appState.session || !_discoveryDocument || !_jwks) return null;
+    if (!_storedValues || !_storedValues.session || !_configsLoaded) return null;
 
-    const token = appState.session.id_token;
+    const { session, max_age, nonce } = _storedValues;
 
-    if (!token) return null;
+    const { id_token } = session;
 
-    const isValid: boolean = validateIdToken(token, _config, appState.nonce, appState.max_age);
+    const isValid: boolean = validateIdToken(id_token, _config, nonce, max_age);
 
-    return isValid ? appState.session : null;
+    if (!isValid) throw new Error("Session exists, but the id token is invalid!");
+
+    return session;
   };
 
   const refreshTokens = async (): Promise<void> => {
@@ -94,101 +101,91 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
     await _storage.set("session", newAuthResult);
   };
 
+  /**
+   * The auth callback method that should be called when the auth callback has redirected to the configured redirect url. This
+   * will internally fetch the discovery if it has not already set, either by preloading it or by manually setting it in the config.
+   * It will process the auth result, exchange the code for tokens and validate the id token, store the session in the
+   * configured storage and triggers an auth state change. If
+   * the `replaceUrlState` adapter is set, it will replace the url state with the url that initiated the login flow.
+   * @param url The url that the auth callback has redirected to containing the code.
+   */
   const authCallback = async (url: string) => {
-    if (!isAuthCb(url, _config)) return;
-
-    _cbUrl = url;
-
     try {
-      await _loadDiscoveryIfEnabled();
-
-      console.log("authCallback", "discovery loaded");
+      await _fetchDiscovery();
 
       const appState = await _storage.get("appState");
 
       if (!appState) throw new Error("No appState found");
 
-      const res = await _processAuthResult();
+      const session = await _processAuthResult(url);
 
-      validateAtHash(res.id_token, res.access_token);
+      validateAtHash(session.id_token, session.access_token);
 
-      const isValidIdToken = validateIdToken(res.id_token, _config, appState.nonce, appState.max_age);
+      const isValidIdToken = validateIdToken(session.id_token, _config, appState.nonce, appState.max_age);
 
       if (!isValidIdToken) throw new Error("Invalid id token");
 
-      await _storage.set("session", res);
+      await _storage.set("session", session);
 
       if (appState.sendUserBackTo) adapters.replaceUrlState(appState.sendUserBackTo);
 
-      _setAuthState(res);
+      _setAuthState(session);
     } catch (e) {
       console.error(e);
       _setAuthState(null);
     }
   };
 
+  /**
+   *
+   * @param callback The callback that will be called when the auth state changes.
+   */
   const onAuthStateChange = (callback: (session: Session | null) => void) => {
     _onAuthStateChange = callback;
   };
 
   const _setAuthState = (session: Session | null) => {
-    _session = session;
     if (typeof _onAuthStateChange === "function") _onAuthStateChange(session);
   };
 
-  const _loadDiscoveryDocument = async () => {
-    try {
-      if (!(await _loadDiscoveryDocumentFromStorage())) await _loadDiscoveryDocumentFromWellKnown();
+  const _fetchDiscovery = async () => {
+    if (_config.autoDiscovery !== false) {
+      const discovery = (await _storage.get("discoveryDocument")) ?? (await _loadDiscoveryDocumentFromWellKnown());
 
-      if (_config.validateDiscovery !== false) _validateDiscoveryDocument();
-
-      if (!(await _loadJwksFromStorage())) await _loadJwks();
-
-      return true;
-    } catch (e) {
-      console.error(e);
-      throw e;
+      _config.discovery = { ..._config.discovery, ...discovery };
     }
+
+    if (!_config.jwks && _config.autoDiscovery !== false) {
+      _config.jwks = (await _storage.get("jwks")) ?? (await _loadJwks());
+    }
+
+    _configsLoaded = true;
   };
 
-  const _loadDiscoveryDocumentFromWellKnown = async (): Promise<DiscoveryDocument> => {
+  const _loadDiscoveryDocumentFromWellKnown = async () => {
     const url = createDiscoveryUrl(_config.issuer);
 
-    _discoveryDocument = await adapters.httpService.get<DiscoveryDocument>(url);
+    const discoveryDocument = await adapters.httpService.get<DiscoveryDocument>(url);
 
-    if (!_discoveryDocument) throw new Error("Discovery document is required!");
+    if (!discoveryDocument) throw new Error("Discovery couldn't be loaded from well known!");
 
-    await _storage.set("discoveryDocument", _discoveryDocument);
+    const issuerWithoutTrailingSlash = trimTrailingSlash(discoveryDocument.issuer);
 
-    return _discoveryDocument;
-  };
-
-  const _loadDiscoveryDocumentFromStorage = async () => {
-    _discoveryDocument = await _storage.get("discoveryDocument");
-
-    return !!_discoveryDocument;
-  };
-
-  const _validateDiscoveryDocument = () => {
-    if (!_discoveryDocument) throw new Error("Discovery document is required!");
-
-    const issuerWithoutTrailingSlash = trimTrailingSlash(_discoveryDocument.issuer);
     if (issuerWithoutTrailingSlash !== _config.issuer) throw new Error("Invalid issuer in discovery document");
-  };
 
-  const _loadJwksFromStorage = async () => {
-    _jwks = await _storage.get("jwks");
+    await _storage.set("discoveryDocument", discoveryDocument);
 
-    return !!_jwks;
+    return discoveryDocument;
   };
 
   const _loadJwks = async () => {
+    if (!_config.discovery.jwks_uri) throw new Error("Jwks uri is missing!");
     try {
-      _jwks = await adapters.httpService.get<JWKS>(_discoveryDocument!.jwks_uri);
+      const jwks = await adapters.httpService.get<JWKS>(_config.discovery.jwks_uri);
 
-      await _storage.set("jwks", _jwks);
+      await _storage.set("jwks", jwks);
 
-      return !!_jwks;
+      return jwks;
     } catch (e) {
       console.error(e);
       throw e;
@@ -222,7 +219,7 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
   };
 
   const _createLogoutUrlAndSaveState = async (extraParams?: ExtraQueryParams) => {
-    if (!_config.endsessionEndpoint) {
+    if (!_config.discovery?.end_session_endpoint) {
       console.log("No endsession endpoint found, cannot log out at idp");
       return null;
     }
@@ -233,7 +230,7 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
 
     if (idToken) params["id_token_hint"] = idToken;
 
-    const logoutUrl = createLogoutUrl(_config.endsessionEndpoint, {
+    const logoutUrl = createLogoutUrl(_config.discovery.end_session_endpoint, {
       ...extraParams,
       ...params,
     });
@@ -241,23 +238,8 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
     return logoutUrl;
   };
 
-  const _loadDiscoveryIfEnabled = async () => {
-    if (_config.discovery !== false && !_discoveryDocument) {
-      await _loadDiscoveryDocument();
-    }
-
-    _config = {
-      ..._config,
-      authorizeEndpoint: _discoveryDocument!.authorization_endpoint,
-      tokenEndpoint: _discoveryDocument!.token_endpoint,
-      jwks: _jwks,
-    };
-  };
-
-  const _processAuthResult = async (): Promise<Session> => {
-    const urlString = _cbUrl!;
-
-    const [_, search] = urlString.split("?");
+  const _processAuthResult = async (url: string): Promise<Session> => {
+    const [_, search] = url.split("?");
 
     const params = new URLSearchParams(search);
 
@@ -315,42 +297,25 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
 
     const requestBody = createRefreshTokenRequestBody(_config, refreshToken);
 
-    const tokenResponse = await adapters.httpService.post<Session>(_config.tokenEndpoint!, requestBody, {
+    const tokenResponse = await adapters.httpService.post<Session>(_config.discovery?.token_endpoint!, requestBody, {
       "Content-Type": "application/x-www-form-urlencoded",
     });
 
     return tokenResponse;
   };
 
-  const _removeLocalSession = async () => {
-    const appState = await _storage.get("appState");
-
-    if (!appState) throw new Error("No app state found!");
-
-    await _storage.remove("appState");
+  const _endSession = async () => {
+    try {
+      await _storage.remove("appState");
+    } catch {}
 
     _setAuthState(null);
   };
 
   const _initSessionIfExists = async () => {
-    const appState = await _storage.get("appState");
+    const session = await getSession();
 
-    _jwks = appState?.jwks;
-    _discoveryDocument = appState?.discoveryDocument;
-
-    if (!appState || !appState.session || !_discoveryDocument || !_jwks) return;
-
-    const token = appState.session.id_token;
-
-    if (!token) return;
-
-    const isValid: boolean = validateIdToken(token, _config, appState.nonce, appState.max_age);
-
-    if (!isValid) return;
-
-    _session = appState.session;
-
-    _setAuthState(appState.session);
+    _setAuthState(session);
   };
 
   const _fetchTokensWithCode = async (code: string): Promise<Session> => {
@@ -361,7 +326,7 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
     const body = createTokenRequestBody(_config, code, appState.codeVerifier);
 
     try {
-      const tokenResponse = await adapters.httpService.post<Session>(_config.tokenEndpoint!, body, {
+      const tokenResponse = await adapters.httpService.post<Session>(_config.discovery?.token_endpoint!, body, {
         "Content-Type": "application/x-www-form-urlencoded",
       });
 
@@ -373,7 +338,7 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
   };
 
   if (_config.preloadDiscoveryDocument) {
-    _loadDiscoveryIfEnabled().then(() => {
+    _fetchDiscovery().then(() => {
       _initSessionIfExists();
     });
   } else {
@@ -385,7 +350,6 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
     signIn,
     signOut,
     signOutLocal,
-    getAuthState,
     refreshTokens,
     getSession,
     onAuthStateChange,

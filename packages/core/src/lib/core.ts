@@ -38,7 +38,7 @@ export const createAuthUrl = (authConfig: AuthConfig, authUrlParams: AuthParams)
     if (authUrlParams["scope"].split(" ").includes("offline_access")) queryParams.append("prompt", "consent");
   }
 
-  const res = `${authConfig.authorizeEndpoint}?${queryParams.toString()}`;
+  const res = `${authConfig.discovery?.authorization_endpoint}?${queryParams.toString()}`;
 
   return res;
 };
@@ -149,6 +149,7 @@ export const validateIdToken = (idToken: string, authConfig: AuthConfig, nonce?:
     const { kid, alg } = header;
 
     if (kid) {
+      console.log("kid", kid, authConfig.jwks?.keys);
       const jwk = authConfig.jwks?.keys.find((jwk: JWK) => jwk.kid === kid);
 
       if (!jwk) throw new Error("Invalid kid");

@@ -2,24 +2,49 @@ export type MaybePromise<T> = T | Promise<T>;
 
 export type InferReturnType<T> = T extends (...args: any[]) => infer R ? R : never;
 
-export type AuthConfig = {
-  responseType: "code";
-  clientId: string;
-  redirectUri: string;
-  postLogoutRedirectUri: string;
+export type AuthConfig =
+  | {
+      responseType: "code";
+      clientId: string;
+      redirectUri: string;
+      postLogoutRedirectUri: string;
+      issuer: string;
+      scope: string;
+      discovery: DiscoveryDocument;
+      jwks: JWKS;
+      queryParams?: ExtraQueryParams;
+      validateDiscovery?: boolean;
+      clockSkewSeconds?: number;
+      enforceHttps?: boolean;
+      disableRefreshTokenConsent?: boolean;
+      preloadDiscoveryDocument?: boolean;
+      autoDiscovery: false;
+    }
+  | {
+      responseType: "code";
+      clientId: string;
+      redirectUri: string;
+      postLogoutRedirectUri: string;
+      issuer: string;
+      scope: string;
+      discovery: Partial<DiscoveryDocument>;
+      jwks?: JWKS;
+      queryParams?: ExtraQueryParams;
+      validateDiscovery?: boolean;
+      clockSkewSeconds?: number;
+      enforceHttps?: boolean;
+      disableRefreshTokenConsent?: boolean;
+      preloadDiscoveryDocument?: boolean;
+      autoDiscovery?: true;
+    };
+
+export type DiscoveryDocument = {
+  check_session_iframe?: string;
+  end_session_endpoint?: string;
   issuer: string;
-  scope: string;
-  authorizeEndpoint?: string;
-  tokenEndpoint?: string;
-  endsessionEndpoint?: string;
-  jwks: JWKS | undefined;
-  queryParams?: ExtraQueryParams;
-  validateDiscovery?: boolean;
-  discovery?: boolean;
-  clockSkewSeconds?: number;
-  enforceHttps?: boolean;
-  disableRefreshTokenConsent?: boolean;
-  preloadDiscoveryDocument?: boolean;
+  authorization_endpoint: string;
+  token_endpoint: string;
+  jwks_uri: string;
 };
 
 export type Adapters = {
@@ -105,14 +130,6 @@ type AuthError =
   | "request_uri_not_supported"
   | "registration_not_supported";
 
-export type DiscoveryDocument = {
-  check_session_iframe: string;
-  issuer: string;
-  authorization_endpoint: string;
-  token_endpoint: string;
-  jwks_uri: string;
-};
-
 type IdTokenBase = {
   iss: string;
   sub: string;
@@ -160,13 +177,13 @@ export type JWT = {
 };
 
 export type StorageService = {
-  get(key: string): MaybePromise<string | undefined>;
+  get(key: string): MaybePromise<string | null>;
   set(key: string, value: string): MaybePromise<void>;
   remove(key: string): MaybePromise<void>;
 };
 
 export type StorageWrapper = {
-  get<K extends StorageKey>(key: K): MaybePromise<StorageReturnType<K> | undefined>;
+  get<K extends StorageKey>(key: K): MaybePromise<StorageReturnType<K> | null>;
   set<K extends StorageKey>(key: K, value: StorageReturnType<K>): MaybePromise<void>;
   remove(key: StorageKey): MaybePromise<void>;
 };
