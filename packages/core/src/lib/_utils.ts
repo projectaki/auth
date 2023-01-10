@@ -1,6 +1,6 @@
 import { KJUR } from "jsrsasign";
 import base64 from "react-native-base64";
-import { Adapters, AuthConfig, HttpService, JWT, StoredValues, StorageKey, StorageService, StorageWrapper } from "./types";
+import { Adapters, HttpService, JWT, StorageKey, StorageService, StorageWrapper } from "./types";
 
 export const typedObjectKeys = <T extends {}, K extends keyof T>(obj: T): K[] => {
   return Object.keys(obj) as K[];
@@ -118,53 +118,29 @@ export const createFetchService = (): HttpService => {
 
 export const createStorageWrapper = (storage: StorageService): StorageWrapper => {
   const get = async (key: StorageKey) => {
-    if (key === "appState") {
-      const result = await storage.get(key);
+    const result = await storage.get(key);
 
-      return result ? JSON.parse(result) : null;
-    }
-
-    const result = await storage.get("appState");
-
-    return result ? JSON.parse(result)[key] : null;
+    return result ? JSON.parse(result) : null;
   };
 
-  const set = async (key: StorageKey, value: any) => {
-    if (key === "appState") {
-      return storage.set(key, JSON.stringify(value));
-    }
-
-    const result = (await storage.get("appState")) ?? "{}";
-
-    const parsed = JSON.parse(result);
-
-    const newRes = {
-      ...parsed,
-      [key]: value,
-    };
-
-    return storage.set("appState", JSON.stringify(newRes));
+  const set = (key: StorageKey, value: any) => {
+    return storage.set(key, JSON.stringify(value));
   };
 
-  const remove = async (key: StorageKey) => {
-    if (key === "appState") {
-      return storage.remove(key);
-    }
+  const remove = (key: StorageKey) => {
+    return storage.remove(key);
+  };
 
-    const result = await storage.get("appState");
+  const clear = async () => {
+    const keys: StorageKey[] = ["session", "discoveryDocument", "jwks", "state"];
 
-    if (!result) return;
-
-    const parsed = JSON.parse(result);
-
-    delete parsed[key];
-
-    return storage.set("appState", JSON.stringify(parsed));
+    await Promise.all(keys.map((key) => remove(key)));
   };
 
   return {
     get,
     set,
     remove,
+    clear,
   };
 };

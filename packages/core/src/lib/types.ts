@@ -57,6 +57,31 @@ export type Adapters = {
   logger?: Logger;
 };
 
+type IdTokenBase = {
+  iss: string;
+  sub: string;
+  aud: string;
+  exp: number;
+  iat: number;
+  auth_time?: number;
+  nonce?: string;
+  acr?: string;
+  amr?: string;
+  azp?: string;
+};
+
+export type IdToken = IdTokenBase;
+
+export type Session = {
+  access_token: string;
+  id_token: string;
+  refresh_token: string;
+  expires_in: number;
+  scope: string;
+  token_type: string;
+  user: any;
+};
+
 export type AuthBaseParams = {
   response_type: "code";
   client_id: string;
@@ -64,12 +89,12 @@ export type AuthBaseParams = {
   scope: string;
 };
 
-export type AppStateParams = AuthBaseParams & {
+export type AuthState = AuthBaseParams & {
   nonce: string;
   codeVerifier: string;
   sendUserBackTo: string;
   state: string;
-};
+} & ExtraQueryParams;
 
 export type AuthParams = AuthBaseParams & ExtraQueryParams;
 
@@ -91,16 +116,6 @@ export type ExtraQueryParams = {
   returnTo?: string;
   client_id?: string;
 };
-
-type OAuthResult = {
-  session?: Session;
-  discoveryDocument?: DiscoveryDocument;
-  jwks?: JWKS;
-};
-
-export type StoredValues = AppStateParams & OAuthResult & ExtraQueryParams;
-
-export type StoredValuesKeys = keyof StoredValues;
 
 export type AuthErrorParams = {
   error: AuthError;
@@ -130,31 +145,6 @@ type AuthError =
   | "request_uri_not_supported"
   | "registration_not_supported";
 
-type IdTokenBase = {
-  iss: string;
-  sub: string;
-  aud: string;
-  exp: number;
-  iat: number;
-  auth_time?: number;
-  nonce?: string;
-  acr?: string;
-  amr?: string;
-  azp?: string;
-};
-
-export type IdToken = IdTokenBase;
-
-export type Session = {
-  access_token: string;
-  id_token: string;
-  refresh_token: string;
-  expires_in: number;
-  scope: string;
-  token_type: string;
-  user: any;
-};
-
 export type JWKS = {
   keys: JWK[];
 };
@@ -182,15 +172,23 @@ export type StorageService = {
   remove(key: string): MaybePromise<void>;
 };
 
-export type StorageWrapper = {
-  get<K extends StorageKey>(key: K): MaybePromise<StorageReturnType<K> | null>;
-  set<K extends StorageKey>(key: K, value: StorageReturnType<K>): MaybePromise<void>;
-  remove(key: StorageKey): MaybePromise<void>;
+export type LocalStorage = {
+  session: Session;
+  discoveryDocument: DiscoveryDocument;
+  jwks: JWKS;
+  state: AuthState;
 };
 
-export type StorageReturnType<K> = K extends "appState" ? StoredValues : K extends StoredValuesKeys ? StoredValues[K] : never;
+export type StorageKey = keyof LocalStorage;
 
-export type StorageKey = StoredValuesKeys | "appState";
+export type StorageReturn<K extends StorageKey> = LocalStorage[K];
+
+export type StorageWrapper = {
+  get<Key extends StorageKey>(key: Key): MaybePromise<StorageReturn<Key> | null>;
+  set<Key extends StorageKey>(key: Key, value: StorageReturn<Key>): MaybePromise<void>;
+  remove(key: StorageKey): MaybePromise<void>;
+  clear(): MaybePromise<void>;
+};
 
 export type Logger = {
   log(message: string, ...optionalParams: any[]): void;

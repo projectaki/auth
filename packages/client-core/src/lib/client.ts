@@ -18,8 +18,7 @@ import {
   createRefreshTokenRequestBody,
   createTokenRequestBody,
   createStorageWrapper,
-  AppStateParams,
-  StoredValues,
+  AuthState,
 } from "@authts/core";
 
 type OidcClientConfig = {
@@ -70,11 +69,12 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
    * @returns The session it exists and is valid and if the configs are loaded, otherwise null.
    */
   const getSession = async () => {
-    const _storedValues = await _storage.get("appState");
+    const state = await _storage.get("state");
+    const session = await _storage.get("session");
 
-    if (!_storedValues || !_storedValues.session || !_configsLoaded) return null;
+    if (!state || !session || !_configsLoaded) return null;
 
-    const { session, max_age, nonce } = _storedValues;
+    const { max_age, nonce } = state;
 
     const { id_token } = session;
 
@@ -86,19 +86,23 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
   };
 
   const refreshTokens = async (): Promise<void> => {
-    const appState = await _storage.get("appState");
+    const state = await _storage.get("state");
 
-    if (!appState) throw new Error("No appState found!");
+    if (!state) throw new Error("No appState found!");
 
-    const newAuthResult = await _fetchTokensWithRefreshToken(appState);
+    const { max_age, nonce } = state;
 
-    validateAtHash(newAuthResult.id_token, newAuthResult.access_token);
+    const session = await _fetchTokensWithRefreshToken(state);
 
-    const isValid = validateIdToken(newAuthResult.id_token, _config, appState.nonce, appState.max_age);
+    const { id_token, access_token } = session;
+
+    validateAtHash(id_token, access_token);
+
+    const isValid = validateIdToken(id_token, _config, nonce, max_age);
 
     if (!isValid) throw new Error("Invalid id token, after refreshing tokens!");
 
-    await _storage.set("session", newAuthResult);
+    await _storage.set("session", session);
   };
 
   /**
@@ -113,21 +117,25 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
     try {
       await _fetchDiscovery();
 
-      const appState = await _storage.get("appState");
+      const state = await _storage.get("state");
 
-      if (!appState) throw new Error("No appState found");
+      if (!state) throw new Error("No appState found");
+
+      const { max_age, nonce, sendUserBackTo } = state;
 
       const session = await _processAuthResult(url);
 
-      validateAtHash(session.id_token, session.access_token);
+      const { id_token, access_token } = session;
 
-      const isValidIdToken = validateIdToken(session.id_token, _config, appState.nonce, appState.max_age);
+      validateAtHash(id_token, access_token);
+
+      const isValidIdToken = validateIdToken(id_token, _config, nonce, max_age);
 
       if (!isValidIdToken) throw new Error("Invalid id token");
 
       await _storage.set("session", session);
 
-      if (appState.sendUserBackTo) adapters.replaceUrlState(appState.sendUserBackTo);
+      if (sendUserBackTo) adapters.replaceUrlState(sendUserBackTo);
 
       _setAuthState(session);
     } catch (e) {
@@ -203,7 +211,7 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
 
     const currentUrl = await adapters.parseUrl();
 
-    const mergedParams: AppStateParams = {
+    const mergedParams: AuthState = {
       nonce,
       codeVerifier,
       sendUserBackTo: currentUrl,
@@ -211,7 +219,7 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
       ...params,
     };
 
-    await _storage.set("appState", mergedParams);
+    await _storage.set("state", mergedParams);
 
     const authUrl = createAuthUrl(_config, { ...params, state, nonce: hashedNonce, code_challenge: codeChallenge });
 
@@ -259,10 +267,11 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
 
   const _checkState = async (params: URLSearchParams) => {
     const returnedState = params.get("state");
+    const authState = await _storage.get("state");
 
     if (!returnedState) throw new Error("State expected from query params!");
 
-    const storedState = await _storage.get("state");
+    const storedState = authState?.state;
 
     if (storedState !== returnedState) throw new Error("Invalid state!");
   };
@@ -286,7 +295,7 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
     }
   };
 
-  const _fetchTokensWithRefreshToken = async (appState: StoredValues): Promise<Session> => {
+  const _fetchTokensWithRefreshToken = async (appState: AuthState): Promise<Session> => {
     const session = await _storage.get("session");
 
     if (!session) throw new Error("No auth result found!");
@@ -306,7 +315,7 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
 
   const _endSession = async () => {
     try {
-      await _storage.remove("appState");
+      await _storage.clear();
     } catch {}
 
     _setAuthState(null);
@@ -319,11 +328,11 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
   };
 
   const _fetchTokensWithCode = async (code: string): Promise<Session> => {
-    const appState = await _storage.get("appState");
+    const state = await _storage.get("state");
 
-    if (!appState) throw new Error("No app state found!");
+    if (!state) throw new Error("No app state found!");
 
-    const body = createTokenRequestBody(_config, code, appState.codeVerifier);
+    const body = createTokenRequestBody(_config, code, state.codeVerifier);
 
     try {
       const tokenResponse = await adapters.httpService.post<Session>(_config.discovery?.token_endpoint!, body, {
