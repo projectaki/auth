@@ -5,7 +5,7 @@ import { ExpoClient } from "./client-expo";
 
 type ContextProps = {
   session: Session | null;
-  //user: User | null;
+  user: any | null;
   loaded: boolean;
 };
 
@@ -20,7 +20,7 @@ export const useSession = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children, client }: Props) => {
   const [session, setSession] = React.useState<Session | null>(null);
-  //const [user, setUser] = React.useState<User | null>(null);
+  const [user, setUser] = React.useState<any | null>(null);
   const [loaded, setLoaded] = React.useState(false);
 
   // Check session on mount
@@ -28,18 +28,16 @@ export const AuthProvider = ({ children, client }: Props) => {
     const run = async () => {
       const session = await client.getSession();
       setSession(session);
+      setUser(session?.user);
 
       client.onAuthStateChange((session) => {
         setSession(session);
+        setUser(session?.user);
       });
     };
-    try {
-      run();
-    } catch (error) {
-      console.error("CLIENT_SESSION_ERROR", error as Error);
-    } finally {
-      setLoaded(true);
-    }
+    run()
+      .catch((e) => console.error("CLIENT_SESSION_ERROR", e as Error))
+      .finally(() => setLoaded(true));
   }, []);
 
   // Check session periodically
@@ -57,7 +55,7 @@ export const AuthProvider = ({ children, client }: Props) => {
     <AuthContext.Provider
       value={{
         session,
-        //user,
+        user,
         loaded,
       }}
     >

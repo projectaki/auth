@@ -1,6 +1,7 @@
 import { useSession } from "@authts/client-expo";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { ActivityIndicator } from "react-native";
 import Authed from "./authed";
 import { HomeScreen } from "./home";
 
