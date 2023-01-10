@@ -53,6 +53,7 @@ export type Adapters = {
   replaceUrlState: (url: string) => MaybePromise<void>;
   randomBytes: (size: number) => MaybePromise<Uint8Array>;
   storage: StorageService;
+  secureStorage?: StorageService;
   httpService: HttpService;
   logger?: Logger;
 };
@@ -73,13 +74,22 @@ type IdTokenBase = {
 export type IdToken = IdTokenBase;
 
 export type Session = {
+  accessToken: string;
+  idToken: string;
+  refreshToken?: string;
+  expiresIn: number;
+  scope: string;
+  tokenType: string;
+  user: Record<string, any>;
+};
+
+export type AuthResult = {
   access_token: string;
   id_token: string;
   refresh_token: string;
   expires_in: number;
   scope: string;
   token_type: string;
-  user: any;
 };
 
 export type AuthBaseParams = {
@@ -161,8 +171,8 @@ export type JWK = {
 };
 
 export type JWT = {
-  header: any;
-  payload: any;
+  header: Record<string, any>;
+  payload: Record<string, any>;
   signature: string;
 };
 
@@ -173,20 +183,29 @@ export type StorageService = {
 };
 
 export type LocalStorage = {
-  session: Session;
   discoveryDocument: DiscoveryDocument;
   jwks: JWKS;
-  state: AuthState;
-};
+} & SecureStorage;
+
+export type SecureStorage = Session & { state: AuthState };
 
 export type StorageKey = keyof LocalStorage;
+export type SecureStorageKey = keyof SecureStorage;
 
 export type StorageReturn<K extends StorageKey> = LocalStorage[K];
+export type SecureStorageReturn<K extends SecureStorageKey> = SecureStorage[K];
 
 export type StorageWrapper = {
   get<Key extends StorageKey>(key: Key): MaybePromise<StorageReturn<Key> | null>;
   set<Key extends StorageKey>(key: Key, value: StorageReturn<Key>): MaybePromise<void>;
   remove(key: StorageKey): MaybePromise<void>;
+  clear(): MaybePromise<void>;
+};
+
+export type SecureStorageWrapper = {
+  get<Key extends SecureStorageKey>(key: Key): MaybePromise<SecureStorageReturn<Key> | null>;
+  set<Key extends SecureStorageKey>(key: Key, value: SecureStorageReturn<Key>): MaybePromise<void>;
+  remove(key: SecureStorageKey): MaybePromise<void>;
   clear(): MaybePromise<void>;
 };
 

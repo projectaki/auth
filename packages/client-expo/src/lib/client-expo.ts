@@ -1,4 +1,4 @@
-import { AuthConfig, createCoreClient, createFetchService, ExtraQueryParams } from "@authts/client-core";
+import { AuthConfig, createCoreClient, ExtraQueryParams, HttpService } from "@authts/client-core";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import * as SecureStore from "expo-secure-store";
@@ -21,7 +21,49 @@ const expoActions = {
   replaceUrlState(url: string) {},
 };
 
-const expoStorage = {
+const createFetchService = (): HttpService => {
+  const get = async <T>(url: string, headers?: { [key: string]: string }): Promise<T> => {
+    const response = await fetch(url, {
+      method: "GET",
+      headers,
+    });
+
+    return response.json();
+  };
+
+  const post = async <T>(url: string, body: any, headers?: { [key: string]: string }): Promise<T> => {
+    const response = await fetch(url, {
+      method: "POST",
+      headers,
+      body,
+    });
+
+    return response.json();
+  };
+
+  return {
+    get,
+    post,
+  };
+};
+
+const ExpoSecureStorage = {
+  async get(key: string) {
+    const val = await SecureStore.getItemAsync(key);
+    if (key === "jwks") console.log(val);
+    return val;
+  },
+
+  remove(key: string) {
+    return SecureStore.deleteItemAsync(key);
+  },
+
+  set(key: string, value: string) {
+    return SecureStore.setItemAsync(key, value);
+  },
+};
+
+const ExpoAsyncStorage = {
   get(key: string) {
     return AsyncStorage.getItem(key);
   },
@@ -39,7 +81,8 @@ export const createExpoClient = (config: AuthConfig) => {
     adapters: {
       httpService: createFetchService(),
       ...expoActions,
-      storage: expoStorage as any,
+      storage: ExpoAsyncStorage,
+      secureStorage: ExpoSecureStorage,
     },
   });
 

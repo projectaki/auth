@@ -1,5 +1,21 @@
 import { KEYUTIL, KJUR } from "jsrsasign";
-import { AuthConfig, JWK, JWT, AuthParams, ExtraQueryParams, Adapters, AuthBaseParams } from "./types";
+import {
+  AuthConfig,
+  JWK,
+  JWT,
+  AuthParams,
+  ExtraQueryParams,
+  Adapters,
+  AuthBaseParams,
+  StorageService,
+  StorageWrapper,
+  SecureStorageWrapper,
+  StorageKey,
+  SecureStorageKey,
+  HttpService,
+  Session,
+  AuthResult,
+} from "./types";
 
 import {
   base64UrlEncode,
@@ -149,7 +165,6 @@ export const validateIdToken = (idToken: string, authConfig: AuthConfig, nonce?:
     const { kid, alg } = header;
 
     if (kid) {
-      console.log("kid", kid, authConfig.jwks?.keys);
       const jwk = authConfig.jwks?.keys.find((jwk: JWK) => jwk.kid === kid);
 
       if (!jwk) throw new Error("Invalid kid");
@@ -291,14 +306,78 @@ const validateXHash = (idToken: string, getXHash: (jwt: JWT) => string, toValida
   if (xHash !== x_hash) throw new Error("Invalid");
 };
 
-export const isAuthCb = (url: string, authConfig: AuthConfig) => {
-  const [path, search] = url.split("?");
+export const authResultToSession = (authResult: AuthResult): Session => {
+  const { id_token, access_token, refresh_token, expires_in, scope, token_type } = authResult;
 
-  if (!search) return false;
+  const { payload } = decodeJWt(id_token);
 
-  const params = new URLSearchParams(search);
+  return {
+    accessToken: access_token,
+    idToken: id_token,
+    refreshToken: refresh_token,
+    expiresIn: expires_in,
+    scope,
+    tokenType: token_type,
+    user: payload,
+  };
+};
 
-  if (path !== authConfig.redirectUri) return false;
+export const createStorageWrapper = (storage: StorageService): StorageWrapper => {
+  const get = async (key: StorageKey) => {
+    const result = await storage.get(key);
 
-  return true;
+    return result ? JSON.parse(result) : null;
+  };
+
+  const set = (key: StorageKey, value: any) => {
+    storage.set(key, JSON.stringify(value ?? null));
+  };
+
+  const remove = (key: StorageKey) => {
+    storage.remove(key);
+  };
+
+  const clear = async () => {
+    const keys: StorageKey[] = ["discoveryDocument", "jwks"];
+
+    Promise.all(keys.map((key) => remove(key)));
+  };
+
+  return {
+    get,
+    set,
+    remove,
+    clear,
+  };
+};
+
+export const createSecureStorageWrapper = <S extends StorageService>(storage?: S): SecureStorageWrapper | null => {
+  if (!storage) return null;
+
+  const get = async (key: SecureStorageKey) => {
+    const result = await storage.get(key);
+
+    return result ? JSON.parse(result) : null;
+  };
+
+  const set = (key: SecureStorageKey, value: any) => {
+    storage.set(key, JSON.stringify(value ?? null));
+  };
+
+  const remove = (key: SecureStorageKey) => {
+    storage.remove(key);
+  };
+
+  const clear = async () => {
+    const keys: SecureStorageKey[] = ["accessToken", "expiresIn", "idToken", "refreshToken", "scope", "tokenType", "user", "state"];
+
+    Promise.all(keys.map((key) => remove(key)));
+  };
+
+  return {
+    get,
+    set,
+    remove,
+    clear,
+  };
 };

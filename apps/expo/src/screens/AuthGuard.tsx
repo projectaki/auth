@@ -9,8 +9,6 @@ const Stack = createNativeStackNavigator();
 function AuthGuard() {
   const { loaded, session } = useSession();
 
-  console.log("session", session);
-
   return (
     <NavigationContainer>
       <Stack.Navigator>
