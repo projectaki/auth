@@ -136,6 +136,7 @@ importers:
 
   packages/client-expo:
     specifiers:
+      '@authts/client-web': '*'
       '@authts/core': '*'
       '@authts/react': '*'
       '@react-native-async-storage/async-storage': ~1.17.3
@@ -143,6 +144,7 @@ importers:
       expo-secure-store: ~12.0.0
       expo-web-browser: ~12.0.0
     dependencies:
+      '@authts/client-web': link:../client-web
       '@authts/core': link:../core
       '@authts/react': link:../react
       '@react-native-async-storage/async-storage': 1.17.11
@@ -2676,7 +2678,7 @@ packages:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
     dependencies:
-      '@tanstack/react-query': 4.20.4_slnhbjkuf3cktqrwdgz34rrasq
+      '@tanstack/react-query': 4.20.4_biqbaboplfbrettd7655fr4n2y
       '@trpc/client': 10.5.0_@trpc+server@10.5.0
       '@trpc/server': 10.5.0
       react: 18.2.0

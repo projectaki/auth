@@ -6,6 +6,7 @@
   "dependencies": {
     "@authts/core": "*",
     "@authts/react": "*",
+    "@authts/client-web": "*",
     "@react-native-async-storage/async-storage": "~1.17.3",
     "expo-linking": "~3.3.0",
     "expo-secure-store": "~12.0.0",

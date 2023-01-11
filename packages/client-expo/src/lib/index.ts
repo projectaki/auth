@@ -4,6 +4,8 @@ import * as WebBrowser from "expo-web-browser";
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Random from "expo-random";
+import { Platform } from "react-native";
+import { createWebClient } from "@authts/client-web";
 
 const expoActions = {
   async parseUrl() {
@@ -76,6 +78,10 @@ const ExpoAsyncStorage = {
 };
 
 export const createExpoClient = (config: AuthConfig) => {
+  if (Platform.OS === "web") {
+    return createWebClient(config);
+  }
+
   const coreClient = createCoreClient({
     authConfig: config,
     adapters: {

@@ -1,6 +1,6 @@
 import { AuthConfig, createCoreClient, ExtraQueryParams, HttpService } from "@authts/core";
 
-const expoActions = {
+const webActions = {
   async parseUrl() {
     const url = location.href;
 
@@ -67,7 +67,7 @@ export const createWebClient = (config: AuthConfig) => {
     authConfig: config,
     adapters: {
       httpService: createFetchService(),
-      ...expoActions,
+      ...webActions,
       storage: WebStorage,
       secureStorage: WebStorage,
     },
