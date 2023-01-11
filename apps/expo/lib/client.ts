@@ -1,7 +1,6 @@
-import { createExpoClient } from "@authts/client-expo";
-import "react-native-url-polyfill/auto";
+import { createWebClient } from "@authts/client-web";
 
-export const client = createExpoClient({
+export const client = createWebClient({
   clientId: "zIB73oRSqof13mYtTIud2usuxtLF7MlU",
   issuer: "https://identity-auth.eu.auth0.com",
   redirectUri: "exp://192.168.50.154:19000",

@@ -1,4 +1,4 @@
-import { AuthConfig, createCoreClient, ExtraQueryParams, HttpService } from "@authts/client-core";
+import { AuthConfig, createCoreClient, ExtraQueryParams, HttpService } from "@authts/core";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import * as SecureStore from "expo-secure-store";

@@ -1,7 +1,7 @@
 import React from "react";
 import { createContext, useContext } from "react";
-import { Session } from "@authts/client-core";
-import { ExpoClient } from "./client-expo";
+import { Session } from "@authts/core";
+import { CoreClient } from "@authts/core";
 
 type ContextProps = {
   session: Session | null;
@@ -13,7 +13,7 @@ const AuthContext = createContext<Partial<ContextProps>>({});
 
 interface Props {
   children: React.ReactNode;
-  client: ExpoClient;
+  client: CoreClient;
 }
 
 export const useSession = () => useContext(AuthContext);

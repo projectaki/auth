@@ -1,30 +1,31 @@
 import {
-  AuthConfig,
-  Adapters,
-  DiscoveryDocument,
-  JWKS,
-  ExtraQueryParams,
+  createStorageWrapper,
+  createSecureStorageWrapper,
   validateIdToken,
   validateAtHash,
+  authResultToSession,
   createDiscoveryUrl,
-  trimTrailingSlash,
   createNonce,
   createVerifierAndChallengePair,
   createParamsFromConfig,
   createAuthUrl,
   createLogoutUrl,
-  Session,
   validateCHash,
   createRefreshTokenRequestBody,
   createTokenRequestBody,
-  createStorageWrapper,
-  AuthState,
-  createSecureStorageWrapper,
+} from "./auth-utils";
+import {
+  AuthConfig,
+  Adapters,
   SecureStorageWrapper,
+  Session,
+  ExtraQueryParams,
+  DiscoveryDocument,
+  JWKS,
+  AuthState,
   AuthResult,
-  typedObjectKeys,
-  authResultToSession,
-} from "@authts/core";
+} from "./types";
+import { typedObjectKeys, trimTrailingSlash } from "./_utils";
 
 type OidcClientConfig = {
   authConfig: AuthConfig;
@@ -405,3 +406,5 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
     onAuthStateChange,
   };
 };
+
+export type CoreClient = ReturnType<typeof createCoreClient>;

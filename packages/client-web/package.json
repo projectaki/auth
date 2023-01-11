@@ -1,5 +1,5 @@
 {
-  "name": "@authts/client-core",
+  "name": "@authts/client-web",
   "version": "0.0.1",
   "main": "index.ts",
   "types": "index.ts",
