@@ -38,6 +38,8 @@ export type AuthConfig =
       autoDiscovery?: true;
     };
 
+export type AuthConfigWithProvider = AuthConfig & { provider: "auth0" };
+
 export type DiscoveryDocument = {
   check_session_iframe?: string;
   end_session_endpoint?: string;

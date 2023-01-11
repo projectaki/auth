@@ -405,3 +405,5 @@ export const createCoreClient = ({ authConfig, adapters }: OidcClientConfig) => 
     onAuthStateChange,
   };
 };
+
+export type CoreClient = ReturnType<typeof createCoreClient>;
